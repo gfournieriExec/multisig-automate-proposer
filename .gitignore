@@ -1,0 +1,27 @@
+# Compiler files
+cache/
+out/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+# Foundry broadcast files
+broadcast/*/*/run-*.json
+!broadcast/*/*/run-latest.json
+
+# Dotenv file
+.env
+.env.safe
+.last_deploy.json
+
+# Node.js dependencies and build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+
+.idea
+.DS_Store
+/coverage
+lcov.info
+lcov.src.info

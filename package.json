@@ -1,0 +1,26 @@
+{
+  "name": "rlc-multichain-safe-integration",
+  "version": "1.0.0",
+  "description": "Safe multisig integration for RLC Multichain Bridge",
+  "main": "index.js",
+  "scripts": {
+    "propose-tx": "ts-node safe/simple-propose-transaction.ts",
+    "list-pending": "ts-node safe/list-pending.ts",
+    "bridge-config": "ts-node safe/bridge-config.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@safe-global/api-kit": "^2.4.0",
+    "@safe-global/protocol-kit": "^4.0.0",
+    "@safe-global/types-kit": "^3.0.0",
+    "dotenv": "^16.0.0",
+    "ethers": "^6.0.0"
+  }
+}
