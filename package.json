@@ -7,6 +7,9 @@
     "propose-tx": "ts-node safe/simple-propose-transaction.ts",
     "list-pending": "ts-node safe/list-pending.ts",
     "bridge-config": "ts-node safe/bridge-config.ts",
+    "execute-tx": "ts-node safe/transaction-executor.ts",
+    "execute-tx-example": "ts-node safe/transaction-executor-example.ts",
+    "test-nonce": "ts-node safe/test-nonce-management.ts",
     "build": "tsc",
     "dev": "ts-node-dev --respawn --transpile-only"
   },

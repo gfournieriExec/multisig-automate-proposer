@@ -135,4 +135,108 @@ export class SafeManager {
   async getModuleTransactions() {
     return await this.apiKit.getModuleTransactions(this.safeConfig.safeAddress);
   }
+
+  /**
+   * Get the current nonce for the Safe
+   */
+  async getCurrentNonce(): Promise<number> {
+    const ownerConfig = getProposerConfig();
+    const protocolKit = await this.createProtocolKit(ownerConfig);
+    return await protocolKit.getNonce();
+  }
+
+  /**
+   * Propose a transaction to the Safe with explicit nonce
+   */
+  async proposeTransactionWithNonce(
+    transactionData: MetaTransactionData,
+    nonce: number
+  ): Promise<string> {
+    const ownerConfig = getProposerConfig();
+    const protocolKit = await this.createProtocolKit(ownerConfig);
+
+    console.log(`   Transaction data: ${JSON.stringify(transactionData, null, 2)}`);
+
+    // Create transaction with explicit nonce
+    const safeTransaction = await protocolKit.createTransaction({
+      transactions: [transactionData],
+      options: {
+        nonce
+      }
+    });
+
+    const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
+    const signature = await protocolKit.signHash(safeTxHash);
+
+    console.log(`   Safe transaction data: ${JSON.stringify(safeTransaction.data, null, 2)}`);
+
+    // Propose transaction to the service
+    try {
+      await this.apiKit.proposeTransaction({
+        safeAddress: this.safeConfig.safeAddress,
+        safeTransactionData: safeTransaction.data,
+        safeTxHash,
+        senderAddress: ownerConfig.address,
+        senderSignature: signature.data
+      });
+    } catch (error) {
+      console.error(`   Error proposing transaction with nonce ${nonce}:`, error);
+      console.error(`   Transaction data that failed:`, JSON.stringify(transactionData, null, 2));
+      throw error;
+    }
+
+    return safeTxHash;
+  }
+
+  /**
+   * Propose multiple transactions with sequential nonces
+   */
+  async proposeTransactionsWithSequentialNonces(
+    transactionsData: MetaTransactionData[]
+  ): Promise<string[]> {
+    if (transactionsData.length === 0) {
+      return [];
+    }
+
+    const baseNonce = await this.getCurrentNonce();
+    console.log(`   Current base nonce: ${baseNonce}`);
+    const hashes: string[] = [];
+
+    for (let i = 0; i < transactionsData.length; i++) {
+      const nonce = baseNonce + i;
+      console.log(`Proposing transaction ${i + 1}/${transactionsData.length} with nonce ${nonce}`);
+      
+      try {
+        const hash = await this.proposeTransactionWithNonce(transactionsData[i], nonce);
+        hashes.push(hash);
+        
+        // Small delay to avoid potential rate limiting
+        if (i < transactionsData.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        console.error(`   Failed to propose transaction ${i + 1} with nonce ${nonce}`);
+        
+        // If nonce conflict, try to get fresh nonce and retry
+        if (error instanceof Error && error.message.includes('Unprocessable Content')) {
+          console.log(`   Retrying with fresh nonce...`);
+          const freshNonce = await this.getCurrentNonce();
+          console.log(`   Fresh nonce: ${freshNonce}`);
+          
+          if (freshNonce !== nonce) {
+            const retryNonce = freshNonce + i;
+            console.log(`   Retrying transaction ${i + 1} with nonce ${retryNonce}`);
+            const hash = await this.proposeTransactionWithNonce(transactionsData[i], retryNonce);
+            hashes.push(hash);
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    return hashes;
+  }
 }
