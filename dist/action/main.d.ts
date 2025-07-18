@@ -7,7 +7,6 @@ declare class GitHubActionRunner {
     private validateInputs;
     private executeAction;
     private proposeTransaction;
-    private executeTransaction;
     private listPendingTransactions;
     run(): Promise<void>;
 }

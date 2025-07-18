@@ -1,6 +1,6 @@
 # Safe Multisig Transaction Proposer - GitHub Action
 
-A reusable GitHub Action for proposing and executing transactions through Safe multisig wallets with Foundry integration.
+A reusable GitHub Action for proposing transactions through Safe multisig wallets with Foundry integration.
 
 ## 🚀 Features
 
@@ -169,7 +169,7 @@ jobs:
 | `proposer-private-key` | Private key of Safe owner | ✅ | - |
 | `foundry-script-path` | Path to Foundry script | ✅ | - |
 | `foundry-script-args` | Additional script arguments | ❌ | `''` |
-| `action-mode` | Action to perform (propose/execute/list-pending) | ❌ | `propose` |
+| `action-mode` | Action to perform (propose/list-pending) | ❌ | `propose` |
 | `transaction-description` | Description for the transaction | ❌ | `'Automated transaction proposal'` |
 | `environment` | Environment (production/staging/development) | ❌ | `production` |
 | `gas-limit` | Gas limit for transactions | ❌ | - |
@@ -198,17 +198,7 @@ Executes Foundry script and proposes transactions to Safe:
     # ... other inputs
 ```
 
-### 2. Execute Mode
-Executes already proposed transactions:
-
-```yaml
-- uses: gfournieriExec/multisig-automate-proposer@v1
-  with:
-    action-mode: 'execute'
-    # ... other inputs
-```
-
-### 3. List Pending Mode
+### 2. List Pending Mode
 Lists all pending transactions in the Safe:
 
 ```yaml

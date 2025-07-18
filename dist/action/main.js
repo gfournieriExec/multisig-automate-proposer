@@ -78,9 +78,6 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             case 'propose':
                 await this.proposeTransaction();
                 break;
-            case 'execute':
-                await this.executeTransaction();
-                break;
             case 'list-pending':
                 await this.listPendingTransactions();
                 break;
@@ -119,12 +116,6 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             core.setOutput('status', 'failed');
             throw error;
         }
-    }
-    async executeTransaction() {
-        logger_1.logger.info('Starting transaction execution');
-        // This would implement transaction execution logic
-        // For now, we'll use the same script execution approach
-        await this.proposeTransaction();
     }
     async listPendingTransactions() {
         logger_1.logger.info('Listing pending transactions');

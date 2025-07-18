@@ -16,7 +16,7 @@ interface ActionInputs {
     proposerPrivateKey: string;
     foundryScriptPath: string;
     foundryScriptArgs: string;
-    actionMode: 'propose' | 'execute' | 'list-pending';
+    actionMode: 'propose' | 'list-pending';
     transactionDescription: string;
     environment: string;
     gasLimit?: string;
@@ -39,7 +39,7 @@ class GitHubActionRunner {
             proposerPrivateKey: core.getInput('proposer-private-key', { required: true }),
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
             foundryScriptArgs: core.getInput('foundry-script-args') || '',
-            actionMode: core.getInput('action-mode') as 'propose' | 'execute' | 'list-pending' || 'propose',
+            actionMode: core.getInput('action-mode') as 'propose' | 'list-pending' || 'propose',
             transactionDescription: core.getInput('transaction-description') || 'Automated transaction proposal',
             environment: core.getInput('environment') || 'production',
             gasLimit: core.getInput('gas-limit') || undefined,
@@ -102,9 +102,6 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             case 'propose':
                 await this.proposeTransaction();
                 break;
-            case 'execute':
-                await this.executeTransaction();
-                break;
             case 'list-pending':
                 await this.listPendingTransactions();
                 break;
@@ -153,14 +150,6 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             core.setOutput('status', 'failed');
             throw error;
         }
-    }
-
-    private async executeTransaction(): Promise<void> {
-        logger.info('Starting transaction execution');
-        
-        // This would implement transaction execution logic
-        // For now, we'll use the same script execution approach
-        await this.proposeTransaction();
     }
 
     private async listPendingTransactions(): Promise<void> {
