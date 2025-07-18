@@ -132,7 +132,16 @@ export class TransactionExecutor {
         chainId: string,
     ): Promise<string[]> {
         logger.info('Processing transactions from broadcast file...');
-        const scriptName = config.scriptName || 'IexecLayerZeroBridge';
+        
+        // Extract contract name from script path for consistent naming
+        let defaultScriptName = 'IexecLayerZeroBridge';
+        if (!config.scriptName) {
+            const scriptPath = config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+            const filename = scriptPath.split('/').pop() || '';
+            defaultScriptName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
+        }
+        
+        const scriptName = config.scriptName || defaultScriptName;
 
         const transactions = await this.readBroadcastFile(scriptName, chainId);
 
