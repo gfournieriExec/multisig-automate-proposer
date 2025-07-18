@@ -320,7 +320,17 @@ export class TransactionExecutor {
                 );
 
                 // Build forge script command
-                const forgeScript = `${config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol'}:${config.smartContract || 'Configure'}`;
+                const scriptPath = config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+                
+                // Extract contract name from script path if smartContract is not provided
+                let contractName = config.smartContract;
+                if (!contractName) {
+                    // Extract filename without extension and remove .s suffix
+                    const filename = scriptPath.split('/').pop() || '';
+                    contractName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
+                }
+                
+                const forgeScript = `${scriptPath}:${contractName}`;
                 args = ['script', forgeScript, '--rpc-url', forgeRpcUrl, '--broadcast', '-vvv'];
 
                 // Add forge options if provided
