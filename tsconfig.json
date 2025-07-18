@@ -40,7 +40,11 @@
         "**/*.spec.ts"
     ],
     "ts-node": {
-        "esm": true,
-        "experimentalSpecifierResolution": "node"
+        "compilerOptions": {
+            "module": "CommonJS",
+            "target": "ES2020"
+        },
+        "transpileOnly": true,
+        "files": true
     }
 }

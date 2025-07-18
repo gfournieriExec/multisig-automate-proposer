@@ -130,13 +130,41 @@ export class Logger {
                 timestamp,
                 level: levelName,
                 message,
-                ...(metadata && { metadata }),
+                ...(metadata && { metadata: this.sanitizeMetadata(metadata) }),
             };
             return JSON.stringify(logEntry);
         } else {
-            const metadataStr = metadata ? ` ${JSON.stringify(metadata)}` : '';
+            const metadataStr = metadata ? ` ${JSON.stringify(this.sanitizeMetadata(metadata))}` : '';
             return `[${timestamp}] ${levelName}: ${message}${metadataStr}`;
         }
+    }
+
+    /**
+     * Sanitize metadata to handle non-serializable values like BigInt
+     */
+    private sanitizeMetadata(obj: any): any {
+        if (obj === null || obj === undefined) {
+            return obj;
+        }
+        
+        if (typeof obj === 'bigint') {
+            return obj.toString();
+        }
+        
+        if (typeof obj !== 'object') {
+            return obj;
+        }
+        
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.sanitizeMetadata(item));
+        }
+        
+        const sanitized: Record<string, any> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            sanitized[key] = this.sanitizeMetadata(value);
+        }
+        
+        return sanitized;
     }
 
     private writeToFile(formattedMessage: string): void {
