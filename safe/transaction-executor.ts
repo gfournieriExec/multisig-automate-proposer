@@ -400,8 +400,8 @@ export class TransactionExecutor {
     ): Promise<BroadcastTransaction[]> {
         const broadcastPath = getBroadcastFilePath(scriptName, chainId);
         const broadcastData: BroadcastFile = readJsonFile(broadcastPath);
-        console.log(`\n\n\n\n----- broadcastData:`, broadcastData);
-        return broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
+        return broadcastData.transactions;
+        // return broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
     }
 
     /**
