@@ -163,7 +163,7 @@ export class Validator {
         to: string;
         value: string;
         data: string;
-        operation?: string;
+        operation?: string | number;
     }): void {
         this.validateAddress(txData.to, 'transaction recipient');
 
@@ -183,13 +183,32 @@ export class Validator {
             this.validateHexString(txData.data, 'transaction data');
         }
 
-        // Validate operation type
-        if (txData.operation && !['call', 'delegatecall'].includes(txData.operation)) {
-            throw new ValidationError(
-                'Invalid operation type: must be "call" or "delegatecall"',
-                ErrorCode.INVALID_TRANSACTION_DATA,
-                { field: 'operation', value: txData.operation },
-            );
+        // Validate operation type (handle both string and numeric values)
+        if (txData.operation !== undefined) {
+            // Handle string values
+            if (typeof txData.operation === 'string' && !['call', 'delegatecall'].includes(txData.operation)) {
+                throw new ValidationError(
+                    'Invalid operation type: must be "call" or "delegatecall"',
+                    ErrorCode.INVALID_TRANSACTION_DATA,
+                    { field: 'operation', value: txData.operation },
+                );
+            }
+            // Handle numeric values (OperationType enum: 0 = Call, 1 = DelegateCall)
+            else if (typeof txData.operation === 'number' && ![0, 1].includes(txData.operation)) {
+                throw new ValidationError(
+                    'Invalid operation type: must be 0 (Call) or 1 (DelegateCall)',
+                    ErrorCode.INVALID_TRANSACTION_DATA,
+                    { field: 'operation', value: txData.operation },
+                );
+            }
+            // Handle invalid types
+            else if (typeof txData.operation !== 'string' && typeof txData.operation !== 'number') {
+                throw new ValidationError(
+                    'Invalid operation type: must be string or number',
+                    ErrorCode.INVALID_TRANSACTION_DATA,
+                    { field: 'operation', value: txData.operation, type: typeof txData.operation },
+                );
+            }
         }
     }
 

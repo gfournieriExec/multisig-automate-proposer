@@ -34,7 +34,7 @@ export declare class Validator {
         to: string;
         value: string;
         data: string;
-        operation?: string;
+        operation?: string | number;
     }): void;
     /**
      * Validate environment variables

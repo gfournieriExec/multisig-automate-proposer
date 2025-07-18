@@ -57,19 +57,19 @@ function getSafeConfig() {
     };
 }
 function getProposerConfig() {
-    const address = process.env[`PROPOSER_1_ADDRESS`];
-    const privateKey = process.env[`PROPOSER_1_PRIVATE_KEY`];
+    const address = process.env[`PROPOSER_ADDRESS`];
+    const privateKey = process.env[`PROPOSER_PRIVATE_KEY`];
     if (!address || !privateKey) {
         logger_1.logger.error('Missing required proposer configuration');
-        throw new errors_1.ConfigurationError(`PROPOSER_1_ADDRESS and PROPOSER_1_PRIVATE_KEY are required in .env.safe`, {
+        throw new errors_1.ConfigurationError(`PROPOSER_ADDRESS and PROPOSER_PRIVATE_KEY are required in .env.safe`, {
             missingAddress: !address,
             missingPrivateKey: !privateKey,
         });
     }
     // Validate proposer configuration
     try {
-        validation_1.Validator.validateAddress(address, 'PROPOSER_1_ADDRESS');
-        validation_1.Validator.validatePrivateKey(privateKey, 'PROPOSER_1_PRIVATE_KEY');
+        validation_1.Validator.validateAddress(address, 'PROPOSER_ADDRESS');
+        validation_1.Validator.validatePrivateKey(privateKey, 'PROPOSER_PRIVATE_KEY');
         logger_1.logger.info('Proposer configuration validated successfully', {
             address,
             privateKeyLength: privateKey.length,

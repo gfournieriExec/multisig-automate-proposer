@@ -111,9 +111,20 @@ class Validator {
         if (txData.data && txData.data !== '0x') {
             this.validateHexString(txData.data, 'transaction data');
         }
-        // Validate operation type
-        if (txData.operation && !['call', 'delegatecall'].includes(txData.operation)) {
-            throw new errors_1.ValidationError('Invalid operation type: must be "call" or "delegatecall"', errors_1.ErrorCode.INVALID_TRANSACTION_DATA, { field: 'operation', value: txData.operation });
+        // Validate operation type (handle both string and numeric values)
+        if (txData.operation !== undefined) {
+            // Handle string values
+            if (typeof txData.operation === 'string' && !['call', 'delegatecall'].includes(txData.operation)) {
+                throw new errors_1.ValidationError('Invalid operation type: must be "call" or "delegatecall"', errors_1.ErrorCode.INVALID_TRANSACTION_DATA, { field: 'operation', value: txData.operation });
+            }
+            // Handle numeric values (OperationType enum: 0 = Call, 1 = DelegateCall)
+            else if (typeof txData.operation === 'number' && ![0, 1].includes(txData.operation)) {
+                throw new errors_1.ValidationError('Invalid operation type: must be 0 (Call) or 1 (DelegateCall)', errors_1.ErrorCode.INVALID_TRANSACTION_DATA, { field: 'operation', value: txData.operation });
+            }
+            // Handle invalid types
+            else if (typeof txData.operation !== 'string' && typeof txData.operation !== 'number') {
+                throw new errors_1.ValidationError('Invalid operation type: must be string or number', errors_1.ErrorCode.INVALID_TRANSACTION_DATA, { field: 'operation', value: txData.operation, type: typeof txData.operation });
+            }
         }
     }
     /**
@@ -127,8 +138,8 @@ class Validator {
             'RPC_URL',
             'SAFE_ADDRESS',
             'SAFE_API_KEY',
-            'PROPOSER_1_ADDRESS',
-            'PROPOSER_1_PRIVATE_KEY',
+            'PROPOSER_ADDRESS',
+            'PROPOSER_PRIVATE_KEY',
         ];
         for (const envVar of required) {
             if (!envVars[envVar]) {
@@ -152,20 +163,20 @@ class Validator {
                 errors.push(`Invalid SAFE_ADDRESS: ${error.message}`);
             }
         }
-        if (envVars.PROPOSER_1_ADDRESS) {
+        if (envVars.PROPOSER_ADDRESS) {
             try {
-                this.validateAddress(envVars.PROPOSER_1_ADDRESS, 'PROPOSER_1_ADDRESS');
+                this.validateAddress(envVars.PROPOSER_ADDRESS, 'PROPOSER_ADDRESS');
             }
             catch (error) {
-                errors.push(`Invalid PROPOSER_1_ADDRESS: ${error.message}`);
+                errors.push(`Invalid PROPOSER_ADDRESS: ${error.message}`);
             }
         }
-        if (envVars.PROPOSER_1_PRIVATE_KEY) {
+        if (envVars.PROPOSER_PRIVATE_KEY) {
             try {
-                this.validatePrivateKey(envVars.PROPOSER_1_PRIVATE_KEY, 'PROPOSER_1_PRIVATE_KEY');
+                this.validatePrivateKey(envVars.PROPOSER_PRIVATE_KEY, 'PROPOSER_PRIVATE_KEY');
             }
             catch (error) {
-                errors.push(`Invalid PROPOSER_1_PRIVATE_KEY: ${error.message}`);
+                errors.push(`Invalid PROPOSER_PRIVATE_KEY: ${error.message}`);
             }
         }
         if (envVars.CHAIN_ID) {
@@ -178,7 +189,7 @@ class Validator {
         }
         // Check for sensitive data in logs
         if (process.env.NODE_ENV === 'production') {
-            if (envVars.PROPOSER_1_PRIVATE_KEY && envVars.PROPOSER_1_PRIVATE_KEY.length > 10) {
+            if (envVars.PROPOSER_PRIVATE_KEY && envVars.PROPOSER_PRIVATE_KEY.length > 10) {
                 warnings.push('Private key detected in environment - ensure logs are secure');
             }
         }
