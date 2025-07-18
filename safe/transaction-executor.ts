@@ -3,6 +3,8 @@
 import { spawn } from 'child_process';
 import { AnvilConfig, AnvilManager } from './anvil-manager';
 import { validateEnvironment } from './config';
+import { ErrorCode, SafeTransactionError } from './errors';
+import { logger, measurePerformance } from './logger';
 import { SafeManager } from './safe-manager';
 import {
     convertHexToDecimal,
@@ -13,6 +15,7 @@ import {
     readJsonFile,
     sleep,
 } from './utils';
+import { Validator } from './validation';
 
 interface BroadcastTransaction {
     hash: string;
@@ -75,68 +78,116 @@ export class TransactionExecutor {
      * Execute transactions from Foundry script with automatic broadcast generation
      */
     async executeFromScript(config: ExecutionConfig): Promise<string[]> {
-        if (config.forgeScript) {
-            console.log(`Executing forge script directly: ${config.forgeScript}`);
-        } else if (config.envVars) {
-            console.log(`Executing forge script with environment variables: ${config.envVars}`);
-        } else if (config.smartContract) {
-            console.log(`Executing forge script for smart contract: ${config.smartContract}`);
-        } else {
-            throw new Error(
+        logger.info('Starting script execution', {
+            forgeScript: config.forgeScript,
+            smartContract: config.smartContract,
+            hasEnvVars: !!config.envVars,
+            dryRun: config.dryRun,
+        });
+
+        // Validate execution configuration
+        this.validateExecutionConfig(config);
+
+        return await measurePerformance('executeFromScript', async () => {
+            try {
+                const chainId = await this.runFoundryScript(config);
+                logger.info('Foundry script completed successfully', { chainId });
+
+                // Execute transactions from broadcast file
+                return await this.processTransactionsFromBroadcast(config, chainId);
+            } catch (error) {
+                logger.error(
+                    'Foundry script execution failed, attempting fallback',
+                    error as Error,
+                );
+
+                // Fallback: try to execute from existing broadcast file
+                return await this.fallbackToBroadcastFile(config);
+            }
+        });
+    }
+
+    /**
+     * Validate execution configuration
+     */
+    private validateExecutionConfig(config: ExecutionConfig): void {
+        if (!config.forgeScript && !config.envVars && !config.smartContract) {
+            throw new SafeTransactionError(
                 'Either forgeScript, envVars, or smartContract configuration is required',
+                ErrorCode.INVALID_CONFIGURATION,
+                { config },
             );
         }
 
+        if (config.rpcUrl) {
+            Validator.validateRpcUrl(config.rpcUrl);
+        }
+    }
+
+    /**
+     * Process transactions from broadcast file
+     */
+    private async processTransactionsFromBroadcast(
+        config: ExecutionConfig,
+        chainId: string,
+    ): Promise<string[]> {
+        logger.info('Processing transactions from broadcast file...');
+        const scriptName = config.scriptName || 'IexecLayerZeroBridge';
+
+        const transactions = await this.readBroadcastFile(scriptName, chainId);
+
+        if (transactions.length === 0) {
+            logger.warn('No transactions found in broadcast file', { scriptName, chainId });
+            return [];
+        }
+
+        logger.info(`Found ${transactions.length} transactions in broadcast file`, {
+            scriptName,
+            chainId,
+            transactionCount: transactions.length,
+        });
+
+        // Validate and convert broadcast transactions to transaction inputs
+        const transactionInputs = transactions.map((tx, index) => {
+            try {
+                const txInput = {
+                    to: tx.transaction.to,
+                    value: convertHexToDecimal(tx.transaction.value),
+                    data: tx.transaction.input,
+                    operation: 'call' as const,
+                };
+
+                // Validate transaction data
+                Validator.validateTransactionData(txInput);
+                return txInput;
+            } catch (error) {
+                throw new SafeTransactionError(
+                    `Invalid transaction data at index ${index}`,
+                    ErrorCode.INVALID_TRANSACTION_DATA,
+                    { index, transaction: tx, error: error },
+                );
+            }
+        });
+
+        return await this.executeTransactions(transactionInputs, config.dryRun);
+    }
+
+    /**
+     * Fallback to existing broadcast file
+     */
+    private async fallbackToBroadcastFile(config: ExecutionConfig): Promise<string[]> {
+        logger.info('Attempting fallback to existing broadcast file...');
+
         try {
-            const chainId = await this.runFoundryScript(config);
-
-            // Execute transactions from broadcast file
-            console.log('Executing transactions from broadcast file...');
-            const scriptName = config.scriptName || 'IexecLayerZeroBridge';
-            const transactions = await this.readBroadcastFile(scriptName, chainId);
-
-            if (transactions.length === 0) {
-                console.log('No transactions found in broadcast file');
-                return [];
-            }
-
-            console.log(`Found ${transactions.length} transactions`);
-
-            // Convert broadcast transactions to transaction inputs
-            const transactionInputs = transactions.map((tx) => ({
-                to: tx.transaction.to,
-                value: convertHexToDecimal(tx.transaction.value),
-                data: tx.transaction.input,
-                operation: 'call' as const,
-            }));
-
-            return await this.executeTransactions(transactionInputs, config.dryRun);
-        } catch (error) {
-            console.error('Failed to run Foundry script:', error);
-            console.log('Attempting to use existing broadcast file...');
-
-            // Fallback: try to execute from existing broadcast file
-            console.log('Executing transactions from broadcast file...');
             const chainId = await getChainIdFromRpc(config.rpcUrl);
-            const scriptName = config.scriptName || 'IexecLayerZeroBridge';
-            const transactions = await this.readBroadcastFile(scriptName, chainId);
-
-            if (transactions.length === 0) {
-                console.log('No transactions found in broadcast file');
-                return [];
-            }
-
-            console.log(`Found ${transactions.length} transactions`);
-
-            // Convert broadcast transactions to transaction inputs
-            const transactionInputs = transactions.map((tx) => ({
-                to: tx.transaction.to,
-                value: convertHexToDecimal(tx.transaction.value),
-                data: tx.transaction.input,
-                operation: 'call' as const,
-            }));
-
-            return await this.executeTransactions(transactionInputs, config.dryRun);
+            return await this.processTransactionsFromBroadcast(config, chainId);
+        } catch (error) {
+            logger.error('Fallback to broadcast file failed', error as Error);
+            throw new SafeTransactionError(
+                'Both Foundry script execution and broadcast file fallback failed',
+                ErrorCode.SAFE_TRANSACTION_FAILED,
+                { originalError: error },
+            );
         }
     }
 

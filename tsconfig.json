@@ -6,16 +6,41 @@
         "outDir": "./dist",
         "rootDir": "./",
         "strict": true,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "noImplicitReturns": true,
+        "noImplicitThis": true,
         "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "declaration": true,
         "declarationMap": true,
         "sourceMap": true,
+        "removeComments": false,
+        "importHelpers": true,
+        "downlevelIteration": true,
+        "incremental": true,
+        "tsBuildInfoFile": "./dist/.tsbuildinfo",
         "types": ["node"],
         "moduleResolution": "node"
     },
-    "include": ["safe/**/*", "types/**/*"],
-    "exclude": ["node_modules", "dist", "lib", "out", "cache"]
+    "include": ["safe/**/*", "types/**/*", "*.ts", "*.js"],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "lib",
+        "out",
+        "cache",
+        "logs",
+        "broadcast",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+    ],
+    "ts-node": {
+        "esm": true,
+        "experimentalSpecifierResolution": "node"
+    }
 }

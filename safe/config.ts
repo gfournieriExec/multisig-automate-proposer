@@ -1,5 +1,8 @@
 import { config } from 'dotenv';
 import * as path from 'path';
+import { ConfigurationError } from './errors';
+import { logger } from './logger';
+import { Validator } from './validation';
 
 // Load environment variables from .env.safe
 config({ path: path.join(__dirname, '../.env.safe') });
@@ -23,15 +26,40 @@ export function getSafeConfig(): SafeConfig {
     const apiKey = process.env.SAFE_API_KEY;
 
     if (!rpcUrl) {
-        throw new Error('RPC_URL is required in .env.safe');
+        logger.error('Missing required environment variable: RPC_URL');
+        throw new ConfigurationError('RPC_URL is required in .env.safe', {
+            missingVariable: 'RPC_URL',
+        });
     }
 
     if (!safeAddress) {
-        throw new Error('SAFE_ADDRESS is required in .env.safe');
+        logger.error('Missing required environment variable: SAFE_ADDRESS');
+        throw new ConfigurationError('SAFE_ADDRESS is required in .env.safe', {
+            missingVariable: 'SAFE_ADDRESS',
+        });
     }
 
     if (!apiKey) {
-        throw new Error('SAFE_API_KEY is required in .env.safe');
+        logger.error('Missing required environment variable: SAFE_API_KEY');
+        throw new ConfigurationError('SAFE_API_KEY is required in .env.safe', {
+            missingVariable: 'SAFE_API_KEY',
+        });
+    }
+
+    // Validate configuration
+    try {
+        Validator.validateRpcUrl(rpcUrl);
+        Validator.validateAddress(safeAddress, 'SAFE_ADDRESS');
+        Validator.validateChainId(chainId);
+
+        logger.info('Safe configuration validated successfully', {
+            chainId,
+            rpcUrl: rpcUrl.substring(0, 20) + '...', // Log truncated URL for security
+            safeAddress,
+        });
+    } catch (error) {
+        logger.error('Invalid Safe configuration', error as Error);
+        throw error;
     }
 
     return {
@@ -47,7 +75,28 @@ export function getProposerConfig(): OwnerConfig {
     const privateKey = process.env[`PROPOSER_1_PRIVATE_KEY`];
 
     if (!address || !privateKey) {
-        throw new Error(`PROPOSER_1_ADDRESS and PROPOSER_1_PRIVATE_KEY are required in .env.safe`);
+        logger.error('Missing required proposer configuration');
+        throw new ConfigurationError(
+            `PROPOSER_1_ADDRESS and PROPOSER_1_PRIVATE_KEY are required in .env.safe`,
+            {
+                missingAddress: !address,
+                missingPrivateKey: !privateKey,
+            },
+        );
+    }
+
+    // Validate proposer configuration
+    try {
+        Validator.validateAddress(address, 'PROPOSER_1_ADDRESS');
+        Validator.validatePrivateKey(privateKey, 'PROPOSER_1_PRIVATE_KEY');
+
+        logger.info('Proposer configuration validated successfully', {
+            address,
+            privateKeyLength: privateKey.length,
+        });
+    } catch (error) {
+        logger.error('Invalid proposer configuration', error as Error);
+        throw error;
     }
 
     return {
@@ -57,6 +106,30 @@ export function getProposerConfig(): OwnerConfig {
 }
 
 export function validateEnvironment(): void {
-    getSafeConfig();
-    getProposerConfig();
+    logger.info('Validating environment configuration...');
+
+    try {
+        getSafeConfig();
+        getProposerConfig();
+
+        // Additional validation
+        const envValidation = Validator.validateEnvironmentVariables(process.env);
+
+        if (!envValidation.isValid) {
+            logger.error('Environment validation failed', { errors: envValidation.errors });
+            throw new ConfigurationError(
+                `Environment validation failed: ${envValidation.errors.join(', ')}`,
+                { validationErrors: envValidation.errors },
+            );
+        }
+
+        if (envValidation.warnings.length > 0) {
+            logger.warn('Environment validation warnings', { warnings: envValidation.warnings });
+        }
+
+        logger.info('Environment validation completed successfully');
+    } catch (error) {
+        logger.error('Environment validation failed', error as Error);
+        throw error;
+    }
 }

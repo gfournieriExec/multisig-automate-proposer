@@ -2,28 +2,73 @@ import SafeApiKit from '@safe-global/api-kit';
 import Safe from '@safe-global/protocol-kit';
 import { MetaTransactionData, OperationType } from '@safe-global/types-kit';
 import { getProposerConfig, getSafeConfig, OwnerConfig } from './config';
+import { AppError, ConfigurationError, ErrorCode, SafeTransactionError } from './errors';
+import { logger } from './logger';
+import { Validator } from './validation';
 
 export class SafeManager {
     private apiKit: SafeApiKit;
     private safeConfig: ReturnType<typeof getSafeConfig>;
 
     constructor() {
-        this.safeConfig = getSafeConfig();
+        try {
+            this.safeConfig = getSafeConfig();
 
-        this.apiKit = new SafeApiKit({
-            chainId: this.safeConfig.chainId,
-        });
+            this.apiKit = new SafeApiKit({
+                chainId: this.safeConfig.chainId,
+            });
+
+            logger.info('SafeManager initialized successfully', {
+                chainId: this.safeConfig.chainId,
+                safeAddress: this.safeConfig.safeAddress,
+            });
+        } catch (error) {
+            logger.error('Failed to initialize SafeManager', { error });
+            throw new ConfigurationError('SafeManager initialization failed', {
+                originalError: error,
+            });
+        }
     }
 
     /**
      * Create a Protocol Kit instance for a specific owner
      */
     private async createProtocolKit(ownerConfig: OwnerConfig): Promise<Safe> {
-        return await Safe.init({
-            provider: this.safeConfig.rpcUrl,
-            signer: ownerConfig.privateKey,
-            safeAddress: this.safeConfig.safeAddress,
-        });
+        try {
+            logger.debug('Creating Protocol Kit instance', {
+                safeAddress: this.safeConfig.safeAddress,
+                ownerAddress: ownerConfig.address,
+            });
+
+            // Validate owner configuration
+            Validator.validateAddress(ownerConfig.address, 'Owner address');
+            Validator.validatePrivateKey(ownerConfig.privateKey);
+
+            const protocolKit = await Safe.init({
+                provider: this.safeConfig.rpcUrl,
+                signer: ownerConfig.privateKey,
+                safeAddress: this.safeConfig.safeAddress,
+            });
+
+            logger.debug('Protocol Kit instance created successfully');
+            return protocolKit;
+        } catch (error) {
+            logger.error('Failed to create Protocol Kit instance', {
+                error,
+                safeAddress: this.safeConfig.safeAddress,
+                ownerAddress: ownerConfig.address,
+            });
+
+            if (error instanceof AppError) {
+                throw error;
+            }
+
+            throw new SafeTransactionError(
+                'Failed to initialize Safe Protocol Kit',
+                ErrorCode.SAFE_TRANSACTION_FAILED,
+                { originalError: error, ownerAddress: ownerConfig.address },
+            );
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
