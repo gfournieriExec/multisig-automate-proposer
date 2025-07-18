@@ -1,12 +1,18 @@
 #!/usr/bin/env ts-node
 
 import { spawn } from 'child_process';
-import { ethers } from 'ethers';
-import * as fs from 'fs';
-import * as path from 'path';
 import { AnvilConfig, AnvilManager } from './anvil-manager';
 import { validateEnvironment } from './config';
 import { SafeManager } from './safe-manager';
+import {
+    convertHexToDecimal,
+    getAvailableScripts,
+    getBroadcastFilePath,
+    getChainIdFromRpc,
+    parseEnvironmentVariables,
+    readJsonFile,
+    sleep,
+} from './utils';
 
 interface BroadcastTransaction {
     hash: string;
@@ -99,7 +105,7 @@ export class TransactionExecutor {
             // Convert broadcast transactions to transaction inputs
             const transactionInputs = transactions.map((tx) => ({
                 to: tx.transaction.to,
-                value: this.convertHexToDecimal(tx.transaction.value),
+                value: convertHexToDecimal(tx.transaction.value),
                 data: tx.transaction.input,
                 operation: 'call' as const,
             }));
@@ -111,7 +117,7 @@ export class TransactionExecutor {
 
             // Fallback: try to execute from existing broadcast file
             console.log('Executing transactions from broadcast file...');
-            const chainId = await this.getChainIdFromRpc(config.rpcUrl);
+            const chainId = await getChainIdFromRpc(config.rpcUrl);
             const scriptName = config.scriptName || 'IexecLayerZeroBridge';
             const transactions = await this.readBroadcastFile(scriptName, chainId);
 
@@ -125,7 +131,7 @@ export class TransactionExecutor {
             // Convert broadcast transactions to transaction inputs
             const transactionInputs = transactions.map((tx) => ({
                 to: tx.transaction.to,
-                value: this.convertHexToDecimal(tx.transaction.value),
+                value: convertHexToDecimal(tx.transaction.value),
                 data: tx.transaction.input,
                 operation: 'call' as const,
             }));
@@ -201,7 +207,7 @@ export class TransactionExecutor {
 
                     // Small delay between transactions
                     if (i < transactionsData.length - 1) {
-                        await new Promise((resolve) => setTimeout(resolve, 1000));
+                        await sleep(1000);
                     }
                 } catch (individualError) {
                     console.error(`   Failed to propose transaction ${i + 1}:`, individualError);
@@ -246,7 +252,7 @@ export class TransactionExecutor {
                     await this.anvilManager.startFork(anvilConfig);
 
                     // Wait a bit for Anvil to start
-                    await new Promise((resolve) => setTimeout(resolve, 3000));
+                    await sleep(3000);
                 }
             }
 
@@ -274,14 +280,8 @@ export class TransactionExecutor {
 
                 // Set environment variables for the forge script
                 if (config.envVars) {
-                    // Parse environment variables from string format: "KEY1=value1 KEY2=value2"
-                    const envPairs = config.envVars.trim().split(/\s+/);
-                    envPairs.forEach((pair) => {
-                        const [key, value] = pair.split('=');
-                        if (key && value) {
-                            env[key] = value;
-                        }
-                    });
+                    const parsedEnvVars = parseEnvironmentVariables(config.envVars);
+                    Object.assign(env, parsedEnvVars);
                 }
 
                 console.log(`Running command: ${command} ${args.join(' ')}`);
@@ -298,7 +298,7 @@ export class TransactionExecutor {
 
                     if (code === 0) {
                         try {
-                            const chainId = await this.getChainIdFromRpc(config.rpcUrl);
+                            const chainId = await getChainIdFromRpc(config.rpcUrl);
                             resolve(chainId);
                         } catch (error) {
                             reject(error);
@@ -322,69 +322,14 @@ export class TransactionExecutor {
     }
 
     /**
-     * Get chain ID from RPC connection to the blockchain
-     */
-    private async getChainIdFromRpc(rpcUrl: string): Promise<string> {
-        try {
-            console.log(`Fetching chain ID from RPC: ${rpcUrl}`);
-
-            const provider = new ethers.JsonRpcProvider(rpcUrl);
-            const network = await provider.getNetwork();
-            const chainId = network.chainId.toString();
-
-            console.log(`Chain ID retrieved: ${chainId}`);
-            return chainId;
-        } catch (error) {
-            console.error('Failed to fetch chain ID from RPC:', error);
-
-            // Fallback to hardcoded mapping as a last resort
-            console.log('Falling back to hardcoded chain ID mapping...');
-            const chainMappings: Record<string, string> = {
-                sepolia: '11155111',
-                'arbitrum-sepolia': '421614',
-                ethereum: '1',
-                arbitrum: '42161',
-                localhost: '31337',
-                '127.0.0.1': '31337',
-                hardhat: '31337',
-            };
-
-            const url = rpcUrl.toLowerCase();
-            for (const [network, chainId] of Object.entries(chainMappings)) {
-                if (url.includes(network)) {
-                    console.log(`Using fallback chain ID: ${chainId}`);
-                    return chainId;
-                }
-            }
-
-            // Default to Sepolia if cannot determine
-            console.log('Using default chain ID: 11155111 (Sepolia)');
-            return '11155111';
-        }
-    }
-
-    /**
      * Read the broadcast file and extract transactions
      */
     private async readBroadcastFile(
         scriptName: string,
         chainId: string,
     ): Promise<BroadcastTransaction[]> {
-        const broadcastPath = path.join(
-            process.cwd(),
-            'broadcast',
-            `${scriptName}.s.sol`,
-            chainId,
-            'run-latest.json',
-        );
-
-        if (!fs.existsSync(broadcastPath)) {
-            throw new Error(`Broadcast file not found: ${broadcastPath}`);
-        }
-
-        const broadcastContent = fs.readFileSync(broadcastPath, 'utf8');
-        const broadcastData: BroadcastFile = JSON.parse(broadcastContent);
-
+        const broadcastPath = getBroadcastFilePath(scriptName, chainId);
+        const broadcastData: BroadcastFile = readJsonFile(broadcastPath);
         return broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
     }
 
@@ -400,57 +345,6 @@ export class TransactionExecutor {
             console.log(`   Data: ${tx.data}`);
             console.log(`   Operation: ${tx.operation || 'call'}`);
         });
-    }
-
-    /**
-     * Convert hex string to decimal string
-     */
-    private convertHexToDecimal(hexValue: string): string {
-        if (!hexValue || hexValue === '0x' || hexValue === '0x0') {
-            return '0';
-        }
-
-        // Remove 0x prefix if present
-        const cleanHex = hexValue.startsWith('0x') ? hexValue.slice(2) : hexValue;
-
-        // Convert to decimal
-        const decimal = parseInt(cleanHex, 16);
-
-        if (isNaN(decimal)) {
-            console.warn(`Invalid hex value: ${hexValue}, using 0`);
-            return '0';
-        }
-
-        return decimal.toString();
-    }
-
-    /**
-     * Get available scripts from broadcast directory
-     */
-    static getAvailableScripts(): string[] {
-        const broadcastDir = path.join(process.cwd(), 'broadcast');
-        if (!fs.existsSync(broadcastDir)) {
-            return [];
-        }
-
-        return fs
-            .readdirSync(broadcastDir)
-            .filter((item) => item.endsWith('.s.sol'))
-            .map((item) => item.replace('.s.sol', ''));
-    }
-
-    /**
-     * Get available chain IDs for a script
-     */
-    static getAvailableChains(scriptName: string): string[] {
-        const scriptDir = path.join(process.cwd(), 'broadcast', `${scriptName}.s.sol`);
-        if (!fs.existsSync(scriptDir)) {
-            return [];
-        }
-
-        return fs
-            .readdirSync(scriptDir)
-            .filter((item) => fs.statSync(path.join(scriptDir, item)).isDirectory());
     }
 
     /**
@@ -485,7 +379,7 @@ Examples:
   npm run execute-tx -- --rpc-url https://arb-mainnet.g.alchemy.com/v2/YOUR_API_KEY --smart-contract Deploy
   npm run execute-tx -- --rpc-url http://localhost:8545 --forge-script "script/bridges/layerZero/IexecLayerZeroBridge.s.sol:Configure"
 
-Available scripts: ${TransactionExecutor.getAvailableScripts().join(', ')}
+Available scripts: ${getAvailableScripts().join(', ')}
     `);
         process.exit(1);
     }

@@ -2,6 +2,7 @@
 
 import { validateEnvironment } from './config';
 import { SafeManager } from './safe-manager';
+import { formatDate, formatWeiToEther, truncateData } from './utils';
 
 interface ListPendingArgs {
     type?: 'pending' | 'all' | 'incoming' | 'multisig' | 'module';
@@ -100,17 +101,15 @@ Examples:
             console.log(`Transaction ${index + 1}:`);
             console.log(`   Hash: ${tx.safeTxHash}`);
             console.log(`   To: ${tx.to}`);
-            console.log(`   Value: ${tx.value} wei`);
-            console.log(`   Data: ${tx.data ? tx.data.substring(0, 42) + '...' : 'None'}`);
+            console.log(`   Value: ${formatWeiToEther(tx.value)} ETH (${tx.value} wei)`);
+            console.log(`   Data: ${truncateData(tx.data)}`);
             console.log(
                 `   Confirmations: ${tx.confirmations?.length || 0}/${tx.confirmationsRequired || 'N/A'}`,
             );
             console.log(
                 `   Executable: ${tx.isExecuted ? 'Executed' : tx.confirmations?.length >= tx.confirmationsRequired ? 'Ready' : 'Pending'}`,
             );
-            console.log(
-                `   Submission Date: ${tx.submissionDate ? new Date(tx.submissionDate).toLocaleString() : 'N/A'}`,
-            );
+            console.log(`   Submission Date: ${formatDate(tx.submissionDate)}`);
 
             if (tx.confirmations && tx.confirmations.length > 0) {
                 console.log(`   Confirmed by:`);
