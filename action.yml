@@ -27,6 +27,10 @@ inputs:
     description: 'Private key of the proposer account (Safe owner)'
     required: true
   
+  safe-api-key:
+    description: 'API key for Safe API service (optional)'
+    required: true
+  
   # Foundry Script Configuration
   foundry-script-path:
     description: 'Path to the Foundry script to execute'

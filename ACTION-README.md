@@ -18,6 +18,7 @@ Store these as repository secrets:
 
 - `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account
 - `RPC_URL`: RPC endpoint for blockchain interaction
+- `SAFE_API_KEY`: API key for Safe API service
 
 ### Required Variables
 Configure these as repository variables:
@@ -167,6 +168,7 @@ jobs:
 | `safe-network` | Network name (mainnet, sepolia, polygon, etc.) | ✅ | `mainnet` |
 | `rpc-url` | RPC URL for blockchain interaction | ✅ | - |
 | `proposer-private-key` | Private key of Safe owner | ✅ | - |
+| `safe-api-key` | API key for Safe API service | ✅ | - |
 | `foundry-script-path` | Path to Foundry script | ✅ | - |
 | `foundry-script-args` | Additional script arguments | ❌ | `''` |
 | `action-mode` | Action to perform (propose/list-pending) | ❌ | `propose` |
