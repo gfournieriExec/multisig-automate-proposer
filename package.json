@@ -17,7 +17,8 @@
         "test-nonce": "ts-node safe/test-nonce-management.ts",
         "build": "tsc",
         "build:watch": "tsc --watch",
-        "build:action": "tsc && cp -r dist/* ./",
+        "build:action": "ncc build action/main.ts -o dist/action --minify",
+        "build:all": "npm run build && npm run build:action",
         "dev": "ts-node-dev --respawn --transpile-only",
         "start": "node dist/safe/transaction-executor.js",
         "format": "prettier --write \"**/*.{ts,js,json,md}\"",
@@ -29,7 +30,7 @@
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "validate": "npm run typecheck && npm run lint && npm run format:check",
-        "prepare": "npm run build",
+        "prepare": "npm run build:all",
         "clean": "rm -rf dist/ logs/ coverage/"
     },
     "keywords": [
@@ -68,6 +69,7 @@
         "@types/node": "^20.0.0",
         "@typescript-eslint/eslint-plugin": "^8.37.0",
         "@typescript-eslint/parser": "^8.37.0",
+        "@vercel/ncc": "^0.38.3",
         "eslint": "^8.57.1",
         "eslint-config-prettier": "^9.1.0",
         "eslint-plugin-prettier": "^5.5.1",
