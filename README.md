@@ -1,6 +1,6 @@
 # Safe Multisig Integration for RLC Multichain Bridge
 
-A production-ready TypeScript application for integrating Safe multisig wallets with Foundry-based smart contract deployments and transaction execution.
+A production-ready TypeScript application for integrating Safe multisig wallets with Foundry-based smart contract deployments and transaction execution. **Now available as a GitHub Action!**
 
 ## 🏗️ Architecture Overview
 
@@ -10,6 +10,7 @@ This project provides a comprehensive solution for:
 - **Foundry Integration**: Seamless integration with Foundry scripts and Anvil forking
 - **Transaction Management**: Batch transaction processing with proper nonce management
 - **Production Monitoring**: Comprehensive logging, error handling, and validation
+- **GitHub Actions**: Reusable workflow for CI/CD automation
 
 ## 🚀 Features
 
@@ -28,6 +29,60 @@ This project provides a comprehensive solution for:
 - ✅ **Configuration Management**: Environment-based configuration with validation
 - ✅ **Type Safety**: Full TypeScript implementation with strict typing
 - ✅ **Code Quality**: Prettier formatting and organized imports
+
+### GitHub Action Features
+
+- ✅ **Reusable Workflows**: Use as a GitHub Action in any repository
+- ✅ **Multi-Network Support**: Support for all major networks
+- ✅ **Secure Secret Management**: Proper handling of private keys and RPC URLs
+- ✅ **Comprehensive Outputs**: Detailed transaction information and status
+- ✅ **Error Reporting**: Automatic issue creation and PR comments on failures
+
+## 🎯 Quick Start - GitHub Action
+
+### Basic Usage
+
+```yaml
+name: Deploy Contract
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Propose Safe Transaction
+        uses: gfournieriExec/multisig-automate-proposer@v1
+        with:
+          safe-address: ${{ vars.SAFE_ADDRESS }}
+          safe-network: 'mainnet'
+          rpc-url: ${{ secrets.RPC_URL }}
+          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+          foundry-script-path: 'script/Deploy.s.sol'
+          transaction-description: 'Deploy new contract version'
+```
+
+### Advanced Multi-Network Deployment
+
+```yaml
+- name: Deploy to Multiple Networks
+  strategy:
+    matrix:
+      network: [mainnet, polygon, arbitrum]
+  uses: gfournieriExec/multisig-automate-proposer@v1
+  with:
+    safe-address: ${{ vars[format('SAFE_ADDRESS_{0}', upper(matrix.network))] }}
+    safe-network: ${{ matrix.network }}
+    rpc-url: ${{ secrets[format('RPC_URL_{0}', upper(matrix.network))] }}
+    proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+    foundry-script-path: 'script/Deploy.s.sol'
+```
+
+📚 **[View Complete GitHub Action Documentation →](ACTION-README.md)**
 
 ## 📋 Prerequisites
 

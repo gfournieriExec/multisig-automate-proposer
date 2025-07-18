@@ -1,0 +1,91 @@
+name: 'Safe Multisig Transaction Proposer'
+description: 'A reusable action for proposing and executing transactions through Safe multisig wallets with Foundry integration'
+author: 'iExec Team'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  # Safe Configuration
+  safe-address:
+    description: 'Safe multisig wallet address'
+    required: true
+  
+  safe-network:
+    description: 'Network name for Safe (mainnet, goerli, sepolia, polygon, etc.)'
+    required: true
+    default: 'mainnet'
+  
+  # RPC Configuration
+  rpc-url:
+    description: 'RPC URL for blockchain interaction'
+    required: true
+  
+  # Private Keys (should be stored as secrets)
+  proposer-private-key:
+    description: 'Private key of the proposer account (Safe owner)'
+    required: true
+  
+  # Foundry Script Configuration
+  foundry-script-path:
+    description: 'Path to the Foundry script to execute'
+    required: true
+  
+  foundry-script-args:
+    description: 'Additional arguments to pass to the Foundry script'
+    required: false
+    default: ''
+  
+  # Action Mode
+  action-mode:
+    description: 'Action to perform: propose, execute, or list-pending'
+    required: false
+    default: 'propose'
+  
+  # Transaction Configuration
+  transaction-description:
+    description: 'Description for the proposed transaction'
+    required: false
+    default: 'Automated transaction proposal'
+  
+  # Environment Configuration
+  environment:
+    description: 'Environment (production, staging, development)'
+    required: false
+    default: 'production'
+  
+  # Optional Configuration
+  gas-limit:
+    description: 'Gas limit for transactions'
+    required: false
+  
+  anvil-fork:
+    description: 'Whether to use Anvil fork for testing (true/false)'
+    required: false
+    default: 'false'
+  
+  dry-run:
+    description: 'Perform a dry run without actual execution (true/false)'
+    required: false
+    default: 'false'
+
+outputs:
+  transaction-hash:
+    description: 'Hash of the first proposed/executed transaction'
+  
+  transaction-hashes:
+    description: 'JSON array of all transaction hashes'
+  
+  transaction-count:
+    description: 'Number of transactions processed'
+  
+  pending-transactions:
+    description: 'JSON object containing pending transactions (when using list-pending mode)'
+  
+  status:
+    description: 'Status of the operation (success, failed, pending)'
+
+runs:
+  using: 'node20'
+  main: 'dist/action/main.js'

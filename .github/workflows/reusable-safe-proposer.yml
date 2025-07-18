@@ -1,0 +1,110 @@
+name: Example - Propose Safe Transaction
+
+on:
+  workflow_call:
+    inputs:
+      safe-address:
+        description: 'Safe multisig wallet address'
+        required: true
+        type: string
+      safe-network:
+        description: 'Network name for Safe (mainnet, goerli, sepolia, polygon, etc.)'
+        required: true
+        type: string
+      rpc-url:
+        description: 'RPC URL for blockchain interaction'
+        required: true
+        type: string
+      foundry-script-path:
+        description: 'Path to the Foundry script to execute'
+        required: true
+        type: string
+      foundry-script-args:
+        description: 'Additional arguments to pass to the Foundry script'
+        required: false
+        type: string
+        default: ''
+      transaction-description:
+        description: 'Description for the proposed transaction'
+        required: false
+        type: string
+        default: 'Automated transaction proposal'
+      environment:
+        description: 'Environment (production, staging, development)'
+        required: false
+        type: string
+        default: 'production'
+      dry-run:
+        description: 'Perform a dry run without actual execution'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      proposer-private-key:
+        description: 'Private key of the proposer account (Safe owner)'
+        required: true
+    outputs:
+      transaction-hash:
+        description: 'Hash of the first proposed transaction'
+        value: ${{ jobs.propose-transaction.outputs.transaction-hash }}
+      transaction-count:
+        description: 'Number of transactions processed'
+        value: ${{ jobs.propose-transaction.outputs.transaction-count }}
+      status:
+        description: 'Status of the operation'
+        value: ${{ jobs.propose-transaction.outputs.status }}
+
+jobs:
+  propose-transaction:
+    runs-on: ubuntu-latest
+    outputs:
+      transaction-hash: ${{ steps.safe-proposer.outputs.transaction-hash }}
+      transaction-count: ${{ steps.safe-proposer.outputs.transaction-count }}
+      status: ${{ steps.safe-proposer.outputs.status }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build action
+        run: npm run build
+      
+      - name: Propose Safe Transaction
+        id: safe-proposer
+        uses: ./
+        with:
+          safe-address: ${{ inputs.safe-address }}
+          safe-network: ${{ inputs.safe-network }}
+          rpc-url: ${{ inputs.rpc-url }}
+          proposer-private-key: ${{ secrets.proposer-private-key }}
+          foundry-script-path: ${{ inputs.foundry-script-path }}
+          foundry-script-args: ${{ inputs.foundry-script-args }}
+          action-mode: 'propose'
+          transaction-description: ${{ inputs.transaction-description }}
+          environment: ${{ inputs.environment }}
+          dry-run: ${{ inputs.dry-run }}
+      
+      - name: Output results
+        run: |
+          echo "Transaction Hash: ${{ steps.safe-proposer.outputs.transaction-hash }}"
+          echo "Transaction Count: ${{ steps.safe-proposer.outputs.transaction-count }}"
+          echo "Status: ${{ steps.safe-proposer.outputs.status }}"
+          
+          if [[ "${{ steps.safe-proposer.outputs.transaction-hashes }}" != "" ]]; then
+            echo "All Transaction Hashes:"
+            echo '${{ steps.safe-proposer.outputs.transaction-hashes }}' | jq '.'
+          fi

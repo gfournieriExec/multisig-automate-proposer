@@ -27,7 +27,7 @@
         "types": ["node"],
         "moduleResolution": "node"
     },
-    "include": ["safe/**/*", "types/**/*", "*.ts", "*.js"],
+    "include": ["safe/**/*", "action/**/*", "types/**/*", "*.ts", "*.js"],
     "exclude": [
         "node_modules",
         "dist",

@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# Pre-commit script to ensure the action is built before commits
+
+echo "🔍 Running pre-commit checks for GitHub Action..."
+
+# Check if we're in a git repository
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    echo "❌ Not in a git repository"
+    exit 1
+fi
+
+# Check if action files have been modified
+if git diff --cached --name-only | grep -E "(action\.yml|action/|package\.json|tsconfig\.json)" > /dev/null; then
+    echo "📦 Action files modified, rebuilding..."
+    
+    # Install dependencies if node_modules doesn't exist
+    if [ ! -d "node_modules" ]; then
+        echo "📥 Installing dependencies..."
+        npm ci
+    fi
+    
+    # Run linting
+    echo "🧹 Running linter..."
+    npm run lint:fix
+    
+    # Run type checking
+    echo "🔍 Type checking..."
+    npm run typecheck
+    
+    # Build the action
+    echo "🏗️ Building action..."
+    npm run build
+    
+    # Check if dist files were generated
+    if [ ! -f "dist/action/main.js" ]; then
+        echo "❌ Build failed - dist/action/main.js not found"
+        exit 1
+    fi
+    
+    # Add the built files to the commit
+    git add dist/
+    
+    echo "✅ Action built successfully and added to commit"
+else
+    echo "ℹ️ No action files modified, skipping build"
+fi
+
+echo "✅ Pre-commit checks passed"
