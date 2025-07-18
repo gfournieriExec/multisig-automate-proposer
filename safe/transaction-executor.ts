@@ -6,6 +6,8 @@ import { MetaTransactionData } from '@safe-global/types-kit';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ethers } from 'ethers';
+import { AnvilManager, AnvilConfig } from './anvil-manager';
 
 interface BroadcastTransaction {
   hash: string;
@@ -38,7 +40,6 @@ interface BroadcastFile {
   multi: boolean;
   commit: string;
 }
-
 interface TransactionInput {
   to: string;
   value: string;
@@ -49,104 +50,87 @@ interface TransactionInput {
 interface ExecutionConfig {
   dryRun?: boolean;
   scriptName?: string;
-  rpcUrl?: string;
+  rpcUrl: string;
   forgeOptions?: string;
-  chainId?: string;
+  forgeScript?: string;
+  smartContract?: string;
+  envVars?: string;
 }
 
 export class TransactionExecutor {
   private safeManager: SafeManager;
+  private anvilManager: AnvilManager;
 
   constructor() {
     this.safeManager = new SafeManager();
-  }
-
-  /**
-   * Execute transactions from a Foundry broadcast file
-   */
-  async executeFromBroadcast(config: ExecutionConfig): Promise<string[]> {
-    console.log('Executing transactions from broadcast file...');
-    
-    let chainId = config.chainId;
-    
-    // If no chain ID provided, try to determine it from RPC URL
-    if (!chainId && config.rpcUrl) {
-      chainId = this.getChainIdFromRpc(config.rpcUrl);
-    }
-    
-    if (!chainId) {
-      throw new Error('Chain ID must be provided or derivable from RPC URL');
-    }
-
-    const scriptName = config.scriptName || 'IexecLayerZeroBridge';
-    const transactions = await this.readBroadcastFile(scriptName, chainId);
-    
-    if (transactions.length === 0) {
-      console.log('No transactions found in broadcast file');
-      return [];
-    }
-
-    console.log(`Found ${transactions.length} transactions`);
-    
-    // Convert broadcast transactions to transaction inputs
-    const transactionInputs = transactions.map(tx => ({
-      to: tx.transaction.to,
-      value: this.convertHexToDecimal(tx.transaction.value),
-      data: tx.transaction.input,
-      operation: 'call' as const
-    }));
-
-    return await this.executeTransactions(transactionInputs, config.dryRun);
+    this.anvilManager = new AnvilManager();
   }
 
   /**
    * Execute transactions from Foundry script with automatic broadcast generation
    */
-  async executeFromScript(
-    sourceChain: string,
-    targetChain: string,
-    config: ExecutionConfig
-  ): Promise<string[]> {
-    console.log(`Executing script for ${sourceChain} -> ${targetChain}`);
-    
+  async executeFromScript(config: ExecutionConfig): Promise<string[]> {
+    if (config.forgeScript) {
+      console.log(`Executing forge script directly: ${config.forgeScript}`);
+    } else if (config.envVars) {
+      console.log(`Executing forge script with environment variables: ${config.envVars}`);
+    } else if (config.smartContract) {
+      console.log(`Executing forge script for smart contract: ${config.smartContract}`);
+    } else {
+      throw new Error('Either forgeScript, envVars, or smartContract configuration is required');
+    }
+
     try {
-      const chainId = await this.runFoundryScript(sourceChain, targetChain, config);
-      
-      const updatedConfig = { ...config, chainId };
-      return await this.executeFromBroadcast(updatedConfig);
-      
+      const chainId = await this.runFoundryScript(config);
+
+      // Execute transactions from broadcast file
+      console.log('Executing transactions from broadcast file...');
+      const scriptName = config.scriptName || 'IexecLayerZeroBridge';
+      const transactions = await this.readBroadcastFile(scriptName, chainId);
+
+      if (transactions.length === 0) {
+        console.log('No transactions found in broadcast file');
+        return [];
+      }
+
+      console.log(`Found ${transactions.length} transactions`);
+
+      // Convert broadcast transactions to transaction inputs
+      const transactionInputs = transactions.map((tx) => ({
+        to: tx.transaction.to,
+        value: this.convertHexToDecimal(tx.transaction.value),
+        data: tx.transaction.input,
+        operation: 'call' as const,
+      }));
+
+      return await this.executeTransactions(transactionInputs, config.dryRun);
     } catch (error) {
       console.error('Failed to run Foundry script:', error);
-      
-      // Try to use existing broadcast file if script execution fails
-      if (config.chainId || config.rpcUrl) {
-        console.log('Attempting to use existing broadcast file...');
-        return await this.executeFromBroadcast(config);
+      console.log('Attempting to use existing broadcast file...');
+
+      // Fallback: try to execute from existing broadcast file
+      console.log('Executing transactions from broadcast file...');
+      const chainId = await this.getChainIdFromRpc(config.rpcUrl);
+      const scriptName = config.scriptName || 'IexecLayerZeroBridge';
+      const transactions = await this.readBroadcastFile(scriptName, chainId);
+
+      if (transactions.length === 0) {
+        console.log('No transactions found in broadcast file');
+        return [];
       }
-      
-      throw error;
+
+      console.log(`Found ${transactions.length} transactions`);
+
+      // Convert broadcast transactions to transaction inputs
+      const transactionInputs = transactions.map((tx) => ({
+        to: tx.transaction.to,
+        value: this.convertHexToDecimal(tx.transaction.value),
+        data: tx.transaction.input,
+        operation: 'call' as const,
+      }));
+
+      return await this.executeTransactions(transactionInputs, config.dryRun);
     }
-  }
-
-  /**
-   * Execute a single transaction
-   */
-  async executeSingleTransaction(
-    to: string,
-    value: string = '0',
-    data: string = '0x',
-    operation: 'call' | 'delegatecall' = 'call',
-    dryRun: boolean = false
-  ): Promise<string> {
-    const transactionInput: TransactionInput = {
-      to,
-      value,
-      data,
-      operation
-    };
-
-    const results = await this.executeTransactions([transactionInput], dryRun);
-    return results[0];
   }
 
   /**
@@ -162,14 +146,14 @@ export class TransactionExecutor {
     }
 
     console.log(`${dryRun ? 'Dry run: ' : ''}Executing ${transactions.length} transaction(s)`);
-    
+
     if (dryRun) {
       this.displayTransactions(transactions);
       return [];
     }
 
     // Convert transaction inputs to MetaTransactionData
-    const transactionsData = transactions.map(tx => 
+    const transactionsData = transactions.map((tx) =>
       tx.operation === 'delegatecall'
         ? this.safeManager.createDelegateCallTransaction(tx.to, tx.data)
         : this.safeManager.createContractCallTransaction(tx.to, tx.data, tx.value)
@@ -184,11 +168,12 @@ export class TransactionExecutor {
     });
 
     console.log('\nProposing transactions with sequential nonces...');
-    
+
     try {
       // Try using the new sequential nonce method
-      const proposedHashes = await this.safeManager.proposeTransactionsWithSequentialNonces(transactionsData);
-      
+      const proposedHashes =
+        await this.safeManager.proposeTransactionsWithSequentialNonces(transactionsData);
+
       console.log('\nAll transactions executed successfully!');
       console.log('\nSafe Transaction Hashes:');
       proposedHashes.forEach((hash, index) => {
@@ -196,32 +181,31 @@ export class TransactionExecutor {
       });
 
       return proposedHashes;
-      
     } catch (error) {
       console.error('Sequential nonce method failed:', error);
       console.log('Falling back to individual transaction proposal...');
-      
+
       // Fallback to individual transaction proposal
       const proposedHashes: string[] = [];
-      
+
       for (let i = 0; i < transactionsData.length; i++) {
         console.log(`\nProposing transaction ${i + 1}/${transactionsData.length} (individual):`);
-        
+
         try {
           const hash = await this.safeManager.proposeTransaction(transactionsData[i]);
           proposedHashes.push(hash);
           console.log(`   Success! Hash: ${hash}`);
-          
+
           // Small delay between transactions
           if (i < transactionsData.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         } catch (individualError) {
           console.error(`   Failed to propose transaction ${i + 1}:`, individualError);
           throw individualError;
         }
       }
-      
+
       console.log('\nAll transactions executed successfully (fallback method)!');
       console.log('\nSafe Transaction Hashes:');
       proposedHashes.forEach((hash, index) => {
@@ -235,74 +219,154 @@ export class TransactionExecutor {
   /**
    * Run the Foundry script and return the chain ID
    */
-  private async runFoundryScript(
-    sourceChain: string,
-    targetChain: string,
-    config: ExecutionConfig
-  ): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const makeArgs = [
-        'configure-bridge',
-        `SOURCE_CHAIN=${sourceChain}`,
-        `TARGET_CHAIN=${targetChain}`,
-        `RPC_URL=${config.rpcUrl || 'http://localhost:8545'}`
-      ];
+  private async runFoundryScript(config: ExecutionConfig): Promise<string> {
+    let anvilConfig: AnvilConfig | undefined;
 
-      if (config.forgeOptions) {
-        const options = config.forgeOptions.trim().split(/\s+/);
-        makeArgs.push(`FORGE_OPTIONS=${options.join(' ')}`);
+    try {
+      // Start Anvil fork if needed
+      if (AnvilManager.shouldStartFork(config.rpcUrl, false)) {
+        console.log('Checking Anvil availability...');
+        const anvilAvailable = await this.anvilManager.checkAvailability();
+
+        if (!anvilAvailable) {
+          console.warn(
+            'Warning: Anvil is not available. Please install Foundry to use fork functionality.'
+          );
+          console.log('Continuing without fork.');
+        } else {
+          anvilConfig = {
+            forkUrl: config.rpcUrl,
+            port: undefined,
+            host: undefined,
+          };
+
+          await this.anvilManager.startFork(anvilConfig);
+
+          // Wait a bit for Anvil to start
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
       }
 
-      const makeProcess = spawn('make', makeArgs, {
-        cwd: process.cwd(),
-        stdio: 'inherit',
-        env: { ...process.env }
-      });
+      return new Promise((resolve, reject) => {
+        let command: string = 'forge';
+        let args: string[];
+        let env = { ...process.env };
 
-      makeProcess.on('close', (code) => {
-        if (code === 0) {
-          const chainId = this.getChainIdFromRpc(config.rpcUrl || 'http://localhost:8545');
-          resolve(chainId);
-        } else {
-          reject(new Error(`Make process exited with code ${code}`));
+        // Determine the RPC URL to use for forge script
+        const forgeRpcUrl = AnvilManager.getForgeRpcUrl(
+          config.rpcUrl,
+          this.anvilManager.isRunning(),
+          anvilConfig
+        );
+
+        // Build forge script command
+        const forgeScript = `${config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol'}:${config.smartContract || 'Configure'}`;
+        args = ['script', forgeScript, '--rpc-url', forgeRpcUrl, '--broadcast', '-vvv'];
+
+        // Add forge options if provided
+        if (config.forgeOptions) {
+          const options = config.forgeOptions.trim().split(/\s+/);
+          args.push(...options);
         }
-      });
 
-      makeProcess.on('error', (error) => {
-        reject(error);
+        // Set environment variables for the forge script
+        if (config.envVars) {
+          // Parse environment variables from string format: "KEY1=value1 KEY2=value2"
+          const envPairs = config.envVars.trim().split(/\s+/);
+          envPairs.forEach((pair) => {
+            const [key, value] = pair.split('=');
+            if (key && value) {
+              env[key] = value;
+            }
+          });
+        }
+
+        console.log(`Running command: ${command} ${args.join(' ')}`);
+
+        const childProcess = spawn(command, args, {
+          cwd: process.cwd(),
+          stdio: 'inherit',
+          env,
+        });
+
+        childProcess.on('close', async (code) => {
+          // Clean up Anvil process
+          this.anvilManager.stop();
+
+          if (code === 0) {
+            try {
+              const chainId = await this.getChainIdFromRpc(config.rpcUrl);
+              resolve(chainId);
+            } catch (error) {
+              reject(error);
+            }
+          } else {
+            reject(new Error(`${command} process exited with code ${code}`));
+          }
+        });
+
+        childProcess.on('error', (error) => {
+          // Clean up Anvil process on error
+          this.anvilManager.stopOnError();
+          reject(error);
+        });
       });
-    });
+    } catch (error) {
+      // Clean up Anvil process if fork startup failed
+      this.anvilManager.stopOnError();
+      throw error;
+    }
   }
 
   /**
-   * Get chain ID from RPC URL or use default mapping
+   * Get chain ID from RPC connection to the blockchain
    */
-  private getChainIdFromRpc(rpcUrl: string): string {
-    const chainMappings: Record<string, string> = {
-      'sepolia': '11155111',
-      'arbitrum-sepolia': '421614',
-      'ethereum': '1',
-      'arbitrum': '42161',
-      'localhost': '31337',
-      '127.0.0.1': '31337',
-      'hardhat': '31337'
-    };
+  private async getChainIdFromRpc(rpcUrl: string): Promise<string> {
+    try {
+      console.log(`Fetching chain ID from RPC: ${rpcUrl}`);
 
-    const url = rpcUrl.toLowerCase();
-    for (const [network, chainId] of Object.entries(chainMappings)) {
-      if (url.includes(network)) {
-        return chainId;
+      const provider = new ethers.JsonRpcProvider(rpcUrl);
+      const network = await provider.getNetwork();
+      const chainId = network.chainId.toString();
+
+      console.log(`Chain ID retrieved: ${chainId}`);
+      return chainId;
+    } catch (error) {
+      console.error('Failed to fetch chain ID from RPC:', error);
+
+      // Fallback to hardcoded mapping as a last resort
+      console.log('Falling back to hardcoded chain ID mapping...');
+      const chainMappings: Record<string, string> = {
+        sepolia: '11155111',
+        'arbitrum-sepolia': '421614',
+        ethereum: '1',
+        arbitrum: '42161',
+        localhost: '31337',
+        '127.0.0.1': '31337',
+        hardhat: '31337',
+      };
+
+      const url = rpcUrl.toLowerCase();
+      for (const [network, chainId] of Object.entries(chainMappings)) {
+        if (url.includes(network)) {
+          console.log(`Using fallback chain ID: ${chainId}`);
+          return chainId;
+        }
       }
-    }
 
-    // Default to Sepolia if cannot determine
-    return '11155111';
+      // Default to Sepolia if cannot determine
+      console.log('Using default chain ID: 11155111 (Sepolia)');
+      return '11155111';
+    }
   }
 
   /**
    * Read the broadcast file and extract transactions
    */
-  private async readBroadcastFile(scriptName: string, chainId: string): Promise<BroadcastTransaction[]> {
+  private async readBroadcastFile(
+    scriptName: string,
+    chainId: string
+  ): Promise<BroadcastTransaction[]> {
     const broadcastPath = path.join(
       process.cwd(),
       'broadcast',
@@ -318,7 +382,7 @@ export class TransactionExecutor {
     const broadcastContent = fs.readFileSync(broadcastPath, 'utf8');
     const broadcastData: BroadcastFile = JSON.parse(broadcastContent);
 
-    return broadcastData.transactions.filter(tx => tx.transactionType === 'CALL');
+    return broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
   }
 
   /**
@@ -342,18 +406,18 @@ export class TransactionExecutor {
     if (!hexValue || hexValue === '0x' || hexValue === '0x0') {
       return '0';
     }
-    
+
     // Remove 0x prefix if present
     const cleanHex = hexValue.startsWith('0x') ? hexValue.slice(2) : hexValue;
-    
+
     // Convert to decimal
     const decimal = parseInt(cleanHex, 16);
-    
+
     if (isNaN(decimal)) {
       console.warn(`Invalid hex value: ${hexValue}, using 0`);
       return '0';
     }
-    
+
     return decimal.toString();
   }
 
@@ -366,9 +430,10 @@ export class TransactionExecutor {
       return [];
     }
 
-    return fs.readdirSync(broadcastDir)
-      .filter(item => item.endsWith('.s.sol'))
-      .map(item => item.replace('.s.sol', ''));
+    return fs
+      .readdirSync(broadcastDir)
+      .filter((item) => item.endsWith('.s.sol'))
+      .map((item) => item.replace('.s.sol', ''));
   }
 
   /**
@@ -380,8 +445,9 @@ export class TransactionExecutor {
       return [];
     }
 
-    return fs.readdirSync(scriptDir)
-      .filter(item => fs.statSync(path.join(scriptDir, item)).isDirectory());
+    return fs
+      .readdirSync(scriptDir)
+      .filter((item) => fs.statSync(path.join(scriptDir, item)).isDirectory());
   }
 
   /**
@@ -395,134 +461,55 @@ export class TransactionExecutor {
 // CLI functionality
 async function main() {
   const args = process.argv.slice(2);
-  
+
   if (args.length === 0) {
     console.log(`
 Transaction Executor
 
-Usage: npm run execute-tx -- [command] [options]
-
-Commands:
-  single              Execute a single transaction
-  script              Execute transactions from Foundry script
-  broadcast           Execute transactions from existing broadcast file
-
-Single transaction options:
-  --to <address>           Target address (required)
-  --value <value>          ETH value to send in wei (default: 0)
-  --data <data>            Transaction data (default: 0x)
-  --operation <type>       Operation type: call or delegatecall (default: call)
-  --dry-run               Show transaction without executing
+Usage: npm run execute-tx -- [options]
 
 Script execution options:
-  --source-chain <chain>   Source chain name (required)
-  --target-chain <chain>   Target chain name (required)
   --rpc-url <url>         RPC URL (default: http://localhost:8545)
-  --script <name>         Script name (default: IexecLayerZeroBridge)
+  --script <name>         Script name for broadcast file (default: IexecLayerZeroBridge)
+  --forge-script <path>   Forge script path (default: script/bridges/layerZero/IexecLayerZeroBridge.s.sol:Configure)
+  --smart-contract <name> Smart contract name (default: Configure)
+  --env-vars <vars>       Environment variables as string: "KEY1=value1 KEY2=value2"
   --forge-options <opts>  Additional forge options
   --dry-run              Show transactions without executing
 
-Broadcast execution options:
-  --script <name>         Script name (required)
-  --chain-id <id>         Chain ID (required)
-  --dry-run              Show transactions without executing
-
 Examples:
-  npm run execute-tx -- single --to 0x1234...5678 --value 1000000000000000000
-  npm run execute-tx -- script --source-chain sepolia --target-chain arbitrum-sepolia
-  npm run execute-tx -- broadcast --script IexecLayerZeroBridge --chain-id 11155111 --dry-run
+  npm run execute-tx -- --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY --env-vars "SOURCE_CHAIN=sepolia TARGET_CHAIN=arbitrum-sepolia"
+  npm run execute-tx -- --rpc-url https://arb-mainnet.g.alchemy.com/v2/YOUR_API_KEY --smart-contract Deploy
+  npm run execute-tx -- --rpc-url http://localhost:8545 --forge-script "script/bridges/layerZero/IexecLayerZeroBridge.s.sol:Configure"
 
 Available scripts: ${TransactionExecutor.getAvailableScripts().join(', ')}
     `);
     process.exit(1);
   }
 
-  const command = args[0];
-  const commandArgs = args.slice(1);
-
   try {
     validateEnvironment();
-    
+
     const executor = new TransactionExecutor();
-    
-    switch (command) {
-      case 'single':
-        await executeSingleCommand(executor, commandArgs);
-        break;
-      case 'script':
-        await executeScriptCommand(executor, commandArgs);
-        break;
-      case 'broadcast':
-        await executeBroadcastCommand(executor, commandArgs);
-        break;
-      default:
-        console.error(`Unknown command: ${command}`);
-        process.exit(1);
-    }
-    
+    await executeScriptCommand(executor, args);
   } catch (error) {
     console.error('Execution failed:', error);
     process.exit(1);
   }
 }
 
-async function executeSingleCommand(executor: TransactionExecutor, args: string[]) {
-  const config: any = { dryRun: false };
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
-    switch (arg) {
-      case '--to':
-        config.to = args[++i];
-        break;
-      case '--value':
-        config.value = args[++i];
-        break;
-      case '--data':
-        config.data = args[++i];
-        break;
-      case '--operation':
-        config.operation = args[++i];
-        break;
-      case '--dry-run':
-        config.dryRun = true;
-        break;
-    }
-  }
-  
-  if (!config.to) {
-    console.error('Error: --to is required for single transaction');
-    process.exit(1);
-  }
-  
-  await executor.executeSingleTransaction(
-    config.to,
-    config.value || '0',
-    config.data || '0x',
-    config.operation || 'call',
-    config.dryRun
-  );
-}
-
 async function executeScriptCommand(executor: TransactionExecutor, args: string[]) {
   const config: any = { dryRun: false, rpcUrl: 'http://localhost:8545' };
-  
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    
+
     if (arg.startsWith('--forge-options=')) {
       config.forgeOptions = arg.substring('--forge-options='.length);
       continue;
     }
-    
+
     switch (arg) {
-      case '--source-chain':
-        config.sourceChain = args[++i];
-        break;
-      case '--target-chain':
-        config.targetChain = args[++i];
-        break;
       case '--rpc-url':
         config.rpcUrl = args[++i];
         break;
@@ -532,45 +519,45 @@ async function executeScriptCommand(executor: TransactionExecutor, args: string[
       case '--forge-options':
         config.forgeOptions = args[++i];
         break;
+      case '--forge-script':
+        config.forgeScript = args[++i];
+        break;
+      case '--smart-contract':
+        config.smartContract = args[++i];
+        break;
+      case '--env-vars':
+        config.envVars = args[++i];
+        break;
       case '--dry-run':
         config.dryRun = true;
         break;
     }
   }
-  
-  if (!config.sourceChain || !config.targetChain) {
-    console.error('Error: --source-chain and --target-chain are required');
-    process.exit(1);
-  }
-  
-  await executor.executeFromScript(config.sourceChain, config.targetChain, config);
-}
 
-async function executeBroadcastCommand(executor: TransactionExecutor, args: string[]) {
-  const config: any = { dryRun: false };
-  
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    
-    switch (arg) {
-      case '--script':
-        config.scriptName = args[++i];
-        break;
-      case '--chain-id':
-        config.chainId = args[++i];
-        break;
-      case '--dry-run':
-        config.dryRun = true;
-        break;
-    }
+  // Check if we have the required configuration
+  let hasValidConfig = false;
+
+  // Check if forge script is explicitly provided
+  if (config.forgeScript) {
+    hasValidConfig = true;
   }
-  
-  if (!config.scriptName || !config.chainId) {
-    console.error('Error: --script and --chain-id are required');
+
+  // Check if smart contract is provided
+  if (config.smartContract) {
+    hasValidConfig = true;
+  }
+
+  // Check if environment variables are provided
+  if (config.envVars) {
+    hasValidConfig = true;
+  }
+
+  if (!hasValidConfig) {
+    console.error('Error: Either --forge-script, --smart-contract, or --env-vars is required');
     process.exit(1);
   }
-  
-  await executor.executeFromBroadcast(config);
+
+  await executor.executeFromScript(config);
 }
 
 if (require.main === module) {

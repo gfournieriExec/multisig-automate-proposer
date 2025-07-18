@@ -16,15 +16,6 @@
     "types": ["node"],
     "moduleResolution": "node"
   },
-  "include": [
-    "safe/**/*",
-    "types/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "lib",
-    "out",
-    "cache"
-  ]
+  "include": ["safe/**/*", "types/**/*"],
+  "exclude": ["node_modules", "dist", "lib", "out", "cache"]
 }

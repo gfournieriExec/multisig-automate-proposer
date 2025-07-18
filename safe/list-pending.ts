@@ -10,12 +10,12 @@ interface ListPendingArgs {
 
 async function main() {
   const args = process.argv.slice(2);
-  
+
   const parsedArgs: ListPendingArgs = {};
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     const value = args[i + 1];
-    
+
     switch (key) {
       case '--type':
         parsedArgs.type = value as 'pending' | 'all' | 'incoming' | 'multisig' | 'module';
@@ -52,15 +52,15 @@ Examples:
 
   try {
     validateEnvironment();
-    
+
     const safeManager = new SafeManager();
     const transactionType = parsedArgs.type || 'pending';
-    
+
     console.log(`Fetching ${transactionType} transactions...`);
     console.log('');
 
     let transactions: any;
-    
+
     switch (transactionType) {
       case 'pending':
         transactions = await safeManager.getPendingTransactions();
@@ -91,7 +91,9 @@ Examples:
     const limit = parsedArgs.limit ? parseInt(parsedArgs.limit) : results.length;
     const transactionsToShow = results.slice(0, limit);
 
-    console.log(`Found ${results.length} ${transactionType} transaction(s) (showing ${transactionsToShow.length}):`);
+    console.log(
+      `Found ${results.length} ${transactionType} transaction(s) (showing ${transactionsToShow.length}):`
+    );
     console.log('');
 
     transactionsToShow.forEach((tx: any, index: number) => {
@@ -100,17 +102,23 @@ Examples:
       console.log(`   To: ${tx.to}`);
       console.log(`   Value: ${tx.value} wei`);
       console.log(`   Data: ${tx.data ? tx.data.substring(0, 42) + '...' : 'None'}`);
-      console.log(`   Confirmations: ${tx.confirmations?.length || 0}/${tx.confirmationsRequired || 'N/A'}`);
-      console.log(`   Executable: ${tx.isExecuted ? 'Executed' : tx.confirmations?.length >= tx.confirmationsRequired ? 'Ready' : 'Pending'}`);
-      console.log(`   Submission Date: ${tx.submissionDate ? new Date(tx.submissionDate).toLocaleString() : 'N/A'}`);
-      
+      console.log(
+        `   Confirmations: ${tx.confirmations?.length || 0}/${tx.confirmationsRequired || 'N/A'}`
+      );
+      console.log(
+        `   Executable: ${tx.isExecuted ? 'Executed' : tx.confirmations?.length >= tx.confirmationsRequired ? 'Ready' : 'Pending'}`
+      );
+      console.log(
+        `   Submission Date: ${tx.submissionDate ? new Date(tx.submissionDate).toLocaleString() : 'N/A'}`
+      );
+
       if (tx.confirmations && tx.confirmations.length > 0) {
         console.log(`   Confirmed by:`);
         tx.confirmations.forEach((confirmation: any) => {
           console.log(`     - ${confirmation.owner}`);
         });
       }
-      
+
       console.log('');
     });
 
@@ -120,13 +128,12 @@ Examples:
     }
 
     console.log(`Total count: ${transactions.count || results.length}`);
-    
+
     if (transactionType === 'pending' && transactionsToShow.length > 0) {
       console.log('');
       console.log('To confirm pending transactions, use the Safe web interface');
       console.log('   Visit: https://app.safe.global/');
     }
-
   } catch (error) {
     console.error('Error fetching transactions:', error);
     process.exit(1);

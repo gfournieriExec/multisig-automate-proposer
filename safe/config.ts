@@ -38,7 +38,7 @@ export function getSafeConfig(): SafeConfig {
     rpcUrl,
     chainId: BigInt(chainId),
     safeAddress,
-    apiKey
+    apiKey,
   };
 }
 
@@ -52,7 +52,7 @@ export function getProposerConfig(): OwnerConfig {
 
   return {
     address,
-    privateKey
+    privateKey,
   };
 }
 

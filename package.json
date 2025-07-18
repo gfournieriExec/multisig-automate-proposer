@@ -11,10 +11,13 @@
     "execute-tx-example": "ts-node safe/transaction-executor-example.ts",
     "test-nonce": "ts-node safe/test-nonce-management.ts",
     "build": "tsc",
-    "dev": "ts-node-dev --respawn --transpile-only"
+    "dev": "ts-node-dev --respawn --transpile-only",
+    "format": "prettier --write \"**/*.{ts,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,md}\""
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "prettier": "^3.6.2",
     "ts-node": "^10.9.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"

@@ -1,6 +1,10 @@
 import SafeApiKit from '@safe-global/api-kit';
 import Safe from '@safe-global/protocol-kit';
-import { MetaTransactionData, OperationType, SafeMultisigTransactionResponse } from '@safe-global/types-kit';
+import {
+  MetaTransactionData,
+  OperationType,
+  SafeMultisigTransactionResponse,
+} from '@safe-global/types-kit';
 import { getSafeConfig, getProposerConfig, OwnerConfig } from './config';
 
 export class SafeManager {
@@ -9,9 +13,9 @@ export class SafeManager {
 
   constructor() {
     this.safeConfig = getSafeConfig();
-    
+
     this.apiKit = new SafeApiKit({
-      chainId: this.safeConfig.chainId
+      chainId: this.safeConfig.chainId,
     });
   }
 
@@ -22,26 +26,24 @@ export class SafeManager {
     return await Safe.init({
       provider: this.safeConfig.rpcUrl,
       signer: ownerConfig.privateKey,
-      safeAddress: this.safeConfig.safeAddress
+      safeAddress: this.safeConfig.safeAddress,
     });
   }
 
-    /*//////////////////////////////////////////////////////////////
+  /*//////////////////////////////////////////////////////////////
                   CREATE TRANSACTION - PROPOSE AND Bridge
     //////////////////////////////////////////////////////////////*/
- 
+
   /**
    * Propose a transaction to the Safe
    */
-  async proposeTransaction(
-    transactionData: MetaTransactionData,
-  ): Promise<string> {
+  async proposeTransaction(transactionData: MetaTransactionData): Promise<string> {
     const ownerConfig = getProposerConfig();
     const protocolKit = await this.createProtocolKit(ownerConfig);
 
     // Create transaction
     const safeTransaction = await protocolKit.createTransaction({
-      transactions: [transactionData]
+      transactions: [transactionData],
     });
 
     const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
@@ -53,7 +55,7 @@ export class SafeManager {
       safeTransactionData: safeTransaction.data,
       safeTxHash,
       senderAddress: ownerConfig.address,
-      senderSignature: signature.data
+      senderSignature: signature.data,
     });
 
     return safeTxHash;
@@ -71,22 +73,19 @@ export class SafeManager {
       to,
       value,
       data,
-      operation: OperationType.Call
+      operation: OperationType.Call,
     };
   }
 
   /**
    * Helper method to create a delegate call transaction
    */
-  createDelegateCallTransaction(
-    to: string,
-    data: string
-  ): MetaTransactionData {
+  createDelegateCallTransaction(to: string, data: string): MetaTransactionData {
     return {
       to,
       value: '0',
       data,
-      operation: OperationType.DelegateCall
+      operation: OperationType.DelegateCall,
     };
   }
 
@@ -97,7 +96,7 @@ export class SafeManager {
     return await this.apiKit.getTransaction(safeTxHash);
   }
 
-    /*//////////////////////////////////////////////////////////////
+  /*//////////////////////////////////////////////////////////////
                             LIST-TRANSACTION
     //////////////////////////////////////////////////////////////*/
 
@@ -161,8 +160,8 @@ export class SafeManager {
     const safeTransaction = await protocolKit.createTransaction({
       transactions: [transactionData],
       options: {
-        nonce
-      }
+        nonce,
+      },
     });
 
     const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
@@ -177,7 +176,7 @@ export class SafeManager {
         safeTransactionData: safeTransaction.data,
         safeTxHash,
         senderAddress: ownerConfig.address,
-        senderSignature: signature.data
+        senderSignature: signature.data,
       });
     } catch (error) {
       console.error(`   Error proposing transaction with nonce ${nonce}:`, error);
@@ -205,24 +204,24 @@ export class SafeManager {
     for (let i = 0; i < transactionsData.length; i++) {
       const nonce = baseNonce + i;
       console.log(`Proposing transaction ${i + 1}/${transactionsData.length} with nonce ${nonce}`);
-      
+
       try {
         const hash = await this.proposeTransactionWithNonce(transactionsData[i], nonce);
         hashes.push(hash);
-        
+
         // Small delay to avoid potential rate limiting
         if (i < transactionsData.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       } catch (error) {
         console.error(`   Failed to propose transaction ${i + 1} with nonce ${nonce}`);
-        
+
         // If nonce conflict, try to get fresh nonce and retry
         if (error instanceof Error && error.message.includes('Unprocessable Content')) {
           console.log(`   Retrying with fresh nonce...`);
           const freshNonce = await this.getCurrentNonce();
           console.log(`   Fresh nonce: ${freshNonce}`);
-          
+
           if (freshNonce !== nonce) {
             const retryNonce = freshNonce + i;
             console.log(`   Retrying transaction ${i + 1} with nonce ${retryNonce}`);
