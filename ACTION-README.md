@@ -16,9 +16,12 @@ A reusable GitHub Action for proposing transactions through Safe multisig wallet
 ### Required Secrets
 Store these as repository secrets:
 
+- `PROPOSER_ADDRESS`: Address of a Safe owner account
 - `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account
 - `RPC_URL`: RPC endpoint for blockchain interaction
-- `SAFE_API_KEY`: API key for Safe API service
+
+### Optional Secrets
+- `SAFE_API_KEY`: API key for Safe API service (for enhanced rate limits)
 
 ### Required Variables
 Configure these as repository variables:
@@ -48,7 +51,9 @@ jobs:
           safe-address: ${{ vars.SAFE_ADDRESS }}
           safe-network: 'mainnet'
           rpc-url: ${{ secrets.RPC_URL }}
+          proposer-address: ${{ secrets.PROPOSER_ADDRESS }}
           proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+          safe-api-key: ${{ secrets.SAFE_API_KEY }}  # Optional: for enhanced rate limits
           foundry-script-path: 'script/Deploy.s.sol'
           transaction-description: 'Deploy new contract version'
 ```
@@ -167,6 +172,7 @@ jobs:
 | `safe-address` | Safe multisig wallet address | ✅ | - |
 | `safe-network` | Network name (mainnet, sepolia, polygon, etc.) | ✅ | `mainnet` |
 | `rpc-url` | RPC URL for blockchain interaction | ✅ | - |
+| `proposer-address` | Address of the proposer account (Safe owner) | ✅ | - |
 | `proposer-private-key` | Private key of Safe owner | ✅ | - |
 | `safe-api-key` | API key for Safe API service | ✅ | - |
 | `foundry-script-path` | Path to Foundry script | ✅ | - |

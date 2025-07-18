@@ -205,8 +205,8 @@ export class Validator {
             'RPC_URL',
             'SAFE_ADDRESS',
             'SAFE_API_KEY',
-            'PROPOSER_1_ADDRESS',
-            'PROPOSER_1_PRIVATE_KEY',
+            'PROPOSER_ADDRESS',
+            'PROPOSER_PRIVATE_KEY',
         ];
 
         for (const envVar of required) {
@@ -232,19 +232,19 @@ export class Validator {
             }
         }
 
-        if (envVars.PROPOSER_1_ADDRESS) {
+        if (envVars.PROPOSER_ADDRESS) {
             try {
-                this.validateAddress(envVars.PROPOSER_1_ADDRESS, 'PROPOSER_1_ADDRESS');
+                this.validateAddress(envVars.PROPOSER_ADDRESS, 'PROPOSER_ADDRESS');
             } catch (error) {
-                errors.push(`Invalid PROPOSER_1_ADDRESS: ${(error as Error).message}`);
+                errors.push(`Invalid PROPOSER_ADDRESS: ${(error as Error).message}`);
             }
         }
 
-        if (envVars.PROPOSER_1_PRIVATE_KEY) {
+        if (envVars.PROPOSER_PRIVATE_KEY) {
             try {
-                this.validatePrivateKey(envVars.PROPOSER_1_PRIVATE_KEY, 'PROPOSER_1_PRIVATE_KEY');
+                this.validatePrivateKey(envVars.PROPOSER_PRIVATE_KEY, 'PROPOSER_PRIVATE_KEY');
             } catch (error) {
-                errors.push(`Invalid PROPOSER_1_PRIVATE_KEY: ${(error as Error).message}`);
+                errors.push(`Invalid PROPOSER_PRIVATE_KEY: ${(error as Error).message}`);
             }
         }
 
@@ -258,7 +258,7 @@ export class Validator {
 
         // Check for sensitive data in logs
         if (process.env.NODE_ENV === 'production') {
-            if (envVars.PROPOSER_1_PRIVATE_KEY && envVars.PROPOSER_1_PRIVATE_KEY.length > 10) {
+            if (envVars.PROPOSER_PRIVATE_KEY && envVars.PROPOSER_PRIVATE_KEY.length > 10) {
                 warnings.push('Private key detected in environment - ensure logs are secure');
             }
         }

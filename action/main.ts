@@ -13,6 +13,7 @@ interface ActionInputs {
     safeAddress: string;
     safeNetwork: string;
     rpcUrl: string;
+    proposerAddress: string;
     proposerPrivateKey: string;
     safeApiKey: string;
     foundryScriptPath: string;
@@ -37,6 +38,7 @@ class GitHubActionRunner {
             safeAddress: core.getInput('safe-address', { required: true }),
             safeNetwork: core.getInput('safe-network', { required: true }),
             rpcUrl: core.getInput('rpc-url', { required: true }),
+            proposerAddress: core.getInput('proposer-address', { required: true }),
             proposerPrivateKey: core.getInput('proposer-private-key', { required: true }),
             safeApiKey: core.getInput('safe-api-key'),
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
@@ -56,6 +58,7 @@ class GitHubActionRunner {
 SAFE_ADDRESS=${this.inputs.safeAddress}
 SAFE_NETWORK=${this.inputs.safeNetwork}
 RPC_URL=${this.inputs.rpcUrl}
+PROPOSER_ADDRESS=${this.inputs.proposerAddress}
 PROPOSER_PRIVATE_KEY=${this.inputs.proposerPrivateKey}
 SAFE_API_KEY=${this.inputs.safeApiKey}
 ENVIRONMENT=${this.inputs.environment}
@@ -69,6 +72,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
         process.env.SAFE_ADDRESS = this.inputs.safeAddress;
         process.env.SAFE_NETWORK = this.inputs.safeNetwork;
         process.env.RPC_URL = this.inputs.rpcUrl;
+        process.env.PROPOSER_ADDRESS = this.inputs.proposerAddress;
         process.env.PROPOSER_PRIVATE_KEY = this.inputs.proposerPrivateKey;
         process.env.ENVIRONMENT = this.inputs.environment;
         process.env.SAFE_API_KEY = this.inputs.safeApiKey;

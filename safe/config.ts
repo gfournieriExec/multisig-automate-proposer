@@ -71,13 +71,13 @@ export function getSafeConfig(): SafeConfig {
 }
 
 export function getProposerConfig(): OwnerConfig {
-    const address = process.env[`PROPOSER_1_ADDRESS`];
-    const privateKey = process.env[`PROPOSER_1_PRIVATE_KEY`];
+    const address = process.env[`PROPOSER_ADDRESS`];
+    const privateKey = process.env[`PROPOSER_PRIVATE_KEY`];
 
     if (!address || !privateKey) {
         logger.error('Missing required proposer configuration');
         throw new ConfigurationError(
-            `PROPOSER_1_ADDRESS and PROPOSER_1_PRIVATE_KEY are required in .env.safe`,
+            `PROPOSER_ADDRESS and PROPOSER_PRIVATE_KEY are required in .env.safe`,
             {
                 missingAddress: !address,
                 missingPrivateKey: !privateKey,
@@ -87,8 +87,8 @@ export function getProposerConfig(): OwnerConfig {
 
     // Validate proposer configuration
     try {
-        Validator.validateAddress(address, 'PROPOSER_1_ADDRESS');
-        Validator.validatePrivateKey(privateKey, 'PROPOSER_1_PRIVATE_KEY');
+        Validator.validateAddress(address, 'PROPOSER_ADDRESS');
+        Validator.validatePrivateKey(privateKey, 'PROPOSER_PRIVATE_KEY');
 
         logger.info('Proposer configuration validated successfully', {
             address,
