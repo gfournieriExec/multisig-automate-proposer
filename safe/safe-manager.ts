@@ -186,6 +186,28 @@ export class SafeManager {
     }
 
     /**
+     * Get Safe information including owners
+     */
+    async getSafeInfo() {
+        return await this.apiKit.getSafeInfo(this.safeConfig.safeAddress);
+    }
+
+    /**
+     * Get all owners of the Safe
+     */
+    async getSafeOwners(): Promise<string[]> {
+        const safeInfo = await this.getSafeInfo();
+        return safeInfo.owners;
+    }
+
+    /**
+     * Get the Safe address
+     */
+    getSafeAddress(): string {
+        return this.safeConfig.safeAddress;
+    }
+
+    /**
      * Propose a transaction to the Safe with explicit nonce
      */
     async proposeTransactionWithNonce(
