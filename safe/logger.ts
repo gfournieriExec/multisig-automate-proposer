@@ -64,7 +64,9 @@ export class Logger {
     }
 
     private initializeFileLogging(): void {
-        if (!this.config.logDirectory) return;
+        if (!this.config.logDirectory) {
+            return;
+        }
 
         // Create log directory if it doesn't exist
         if (!fs.existsSync(this.config.logDirectory)) {
@@ -80,7 +82,9 @@ export class Logger {
     }
 
     private rotateLogsIfNeeded(): void {
-        if (!this.logFilePath || !fs.existsSync(this.logFilePath)) return;
+        if (!this.logFilePath || !fs.existsSync(this.logFilePath)) {
+            return;
+        }
 
         const stats = fs.statSync(this.logFilePath);
         const fileSizeMB = stats.size / (1024 * 1024);
@@ -91,7 +95,9 @@ export class Logger {
     }
 
     private rotateLogs(): void {
-        if (!this.config.logDirectory) return;
+        if (!this.config.logDirectory) {
+            return;
+        }
 
         const logFiles = fs
             .readdirSync(this.config.logDirectory)
@@ -134,7 +140,9 @@ export class Logger {
             };
             return JSON.stringify(logEntry);
         } else {
-            const metadataStr = metadata ? ` ${JSON.stringify(this.sanitizeMetadata(metadata))}` : '';
+            const metadataStr = metadata
+                ? ` ${JSON.stringify(this.sanitizeMetadata(metadata))}`
+                : '';
             return `[${timestamp}] ${levelName}: ${message}${metadataStr}`;
         }
     }
@@ -146,29 +154,31 @@ export class Logger {
         if (obj === null || obj === undefined) {
             return obj;
         }
-        
+
         if (typeof obj === 'bigint') {
             return obj.toString();
         }
-        
+
         if (typeof obj !== 'object') {
             return obj;
         }
-        
+
         if (Array.isArray(obj)) {
-            return obj.map(item => this.sanitizeMetadata(item));
+            return obj.map((item) => this.sanitizeMetadata(item));
         }
-        
+
         const sanitized: Record<string, any> = {};
         for (const [key, value] of Object.entries(obj)) {
             sanitized[key] = this.sanitizeMetadata(value);
         }
-        
+
         return sanitized;
     }
 
     private writeToFile(formattedMessage: string): void {
-        if (!this.config.enableFile || !this.logFilePath) return;
+        if (!this.config.enableFile || !this.logFilePath) {
+            return;
+        }
 
         try {
             fs.appendFileSync(this.logFilePath, formattedMessage + '\n');
@@ -180,7 +190,9 @@ export class Logger {
     }
 
     private writeToConsole(level: LogLevel, formattedMessage: string): void {
-        if (!this.config.enableConsole) return;
+        if (!this.config.enableConsole) {
+            return;
+        }
 
         const colors = {
             [LogLevel.ERROR]: '\x1b[31m', // Red
@@ -200,7 +212,9 @@ export class Logger {
     }
 
     private log(level: LogLevel, message: string, metadata?: Record<string, any>): void {
-        if (!this.shouldLog(level)) return;
+        if (!this.shouldLog(level)) {
+            return;
+        }
 
         const formattedMessage = this.formatMessage(level, message, metadata);
 

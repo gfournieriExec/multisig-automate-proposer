@@ -247,7 +247,7 @@ export class SafeManager {
                 `   Transaction data that failed:`,
                 JSON.stringify(transactionData, null, 2),
             );
-            
+
             // Add more detailed error information
             if (error && typeof error === 'object') {
                 if ('response' in error && error.response && typeof error.response === 'object') {
@@ -265,7 +265,7 @@ export class SafeManager {
                     console.error(`   Error Details:`, error.details);
                 }
             }
-            
+
             throw error;
         }
 

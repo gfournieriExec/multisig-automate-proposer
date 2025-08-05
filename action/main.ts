@@ -43,8 +43,9 @@ class GitHubActionRunner {
             safeApiKey: core.getInput('safe-api-key'),
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
             foundryScriptArgs: core.getInput('foundry-script-args') || '',
-            actionMode: core.getInput('action-mode') as 'propose' | 'list-pending' || 'propose',
-            transactionDescription: core.getInput('transaction-description') || 'Automated transaction proposal',
+            actionMode: (core.getInput('action-mode') as 'propose' | 'list-pending') || 'propose',
+            transactionDescription:
+                core.getInput('transaction-description') || 'Automated transaction proposal',
             environment: core.getInput('environment') || 'production',
             gasLimit: core.getInput('gas-limit') || undefined,
             anvilFork: core.getBooleanInput('anvil-fork'),
@@ -67,7 +68,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
 
         // Write environment configuration to a temporary file
         writeFileSync('.env.safe', envConfig);
-        
+
         // Set environment variables for the process
         process.env.SAFE_ADDRESS = this.inputs.safeAddress;
         process.env.SAFE_NETWORK = this.inputs.safeNetwork;
@@ -92,11 +93,10 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
     private async validateInputs(): Promise<void> {
         try {
             await validateEnvironment();
-            
+
             // Validate chain ID matches network
             const chainId = await getChainIdFromRpc(this.inputs.rpcUrl);
             logger.info('Validated RPC connection', { chainId });
-            
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown validation error';
             core.setFailed(`Input validation failed: ${message}`);
@@ -115,7 +115,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             default:
                 throw new SafeTransactionError(
                     ErrorCode.UNKNOWN_ERROR,
-                    `Invalid action mode: ${this.inputs.actionMode}`
+                    `Invalid action mode: ${this.inputs.actionMode}`,
                 );
         }
     }
@@ -127,7 +127,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
         });
 
         const executor = new TransactionExecutor();
-        
+
         try {
             // Configure execution parameters based on inputs
             const executionConfig = {
@@ -144,15 +144,14 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
                 core.setOutput('transaction-hash', transactionHashes[0]);
                 core.setOutput('transaction-hashes', JSON.stringify(transactionHashes));
             }
-            
+
             core.setOutput('status', 'success');
             core.setOutput('transaction-count', transactionHashes.length.toString());
-            
-            logger.info('Transaction proposal completed successfully', { 
+
+            logger.info('Transaction proposal completed successfully', {
                 transactionCount: transactionHashes.length,
-                hashes: transactionHashes 
+                hashes: transactionHashes,
             });
-            
         } catch (error) {
             core.setOutput('status', 'failed');
             throw error;
@@ -161,21 +160,20 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
 
     private async listPendingTransactions(): Promise<void> {
         logger.info('Listing pending transactions');
-        
+
         try {
             const safeManager = new SafeManager();
             const pendingTxs = await safeManager.getPendingTransactions();
-            
+
             // Output pending transactions as JSON
             core.setOutput('pending-transactions', JSON.stringify(pendingTxs, null, 2));
             core.setOutput('status', 'success');
-            
-            logger.info('Listed pending transactions', { 
+
+            logger.info('Listed pending transactions', {
                 count: pendingTxs.results?.length || 0,
                 next: pendingTxs.next,
-                previous: pendingTxs.previous 
+                previous: pendingTxs.previous,
             });
-            
         } catch (error) {
             core.setOutput('status', 'failed');
             throw error;
@@ -185,25 +183,24 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
     async run(): Promise<void> {
         try {
             core.info('🚀 Starting Safe Multisig Transaction Proposer Action');
-            
+
             // Setup environment and validate inputs
             this.setupEnvironment();
             await this.validateInputs();
-            
+
             // Execute the requested action
             await this.executeAction();
-            
+
             core.info('✅ Action completed successfully');
-            
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error occurred';
             core.setFailed(`Action failed: ${message}`);
-            
+
             logger.error('GitHub Action failed', {
                 error: message,
                 stack: error instanceof Error ? error.stack : undefined,
             });
-            
+
             process.exit(1);
         }
     }

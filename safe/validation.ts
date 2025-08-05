@@ -186,7 +186,10 @@ export class Validator {
         // Validate operation type (handle both string and numeric values)
         if (txData.operation !== undefined) {
             // Handle string values
-            if (typeof txData.operation === 'string' && !['call', 'delegatecall'].includes(txData.operation)) {
+            if (
+                typeof txData.operation === 'string' &&
+                !['call', 'delegatecall'].includes(txData.operation)
+            ) {
                 throw new ValidationError(
                     'Invalid operation type: must be "call" or "delegatecall"',
                     ErrorCode.INVALID_TRANSACTION_DATA,
@@ -348,7 +351,9 @@ export class Validator {
      * Sanitize input to prevent injection attacks
      */
     static sanitizeInput(input: string, fieldName: string = 'input'): string {
-        if (!input) return '';
+        if (!input) {
+            return '';
+        }
 
         // Remove potentially dangerous characters
         const sanitized = input

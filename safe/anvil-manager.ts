@@ -69,7 +69,9 @@ export class AnvilManager {
             // Add auto-impersonate if we have accounts to unlock
             if (config.unlockAccounts && config.unlockAccounts.length > 0) {
                 anvilArgs.push('--auto-impersonate');
-                console.log(`Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`);
+                console.log(
+                    `Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`,
+                );
             }
 
             console.log(`Anvil command: anvil ${anvilArgs.join(' ')}`);
@@ -93,15 +95,16 @@ export class AnvilManager {
                     this.isStarted = true;
                     this.currentConfig = config;
                     console.log(`Anvil fork started successfully on ${host}:${port}`);
-                    
+
                     // Fund any unlock accounts after startup
                     if (config.unlockAccounts && config.unlockAccounts.length > 0) {
-                        this.fundUnlockAccounts(config.unlockAccounts, balance, host, port)
-                            .catch((error: Error) => {
+                        this.fundUnlockAccounts(config.unlockAccounts, balance, host, port).catch(
+                            (error: Error) => {
                                 console.error(`Failed to fund unlock accounts: ${error.message}`);
-                            });
+                            },
+                        );
                     }
-                    
+
                     resolve(this.anvilProcess!);
                 }
             });
@@ -192,12 +195,12 @@ export class AnvilManager {
         port: number,
     ): Promise<void> {
         const rpcUrl = host === '0.0.0.0' ? `http://localhost:${port}` : `http://${host}:${port}`;
-        
+
         // Convert balance from ETH to Wei (18 decimals)
         const balanceWei = `0x${(BigInt(balance) * BigInt(10) ** BigInt(18)).toString(16)}`;
-        
+
         console.log(`Funding ${accounts.length} unlock account(s) with ${balance} ETH each...`);
-        
+
         for (const account of accounts) {
             try {
                 const response = await fetch(rpcUrl, {
@@ -218,11 +221,11 @@ export class AnvilManager {
                 }
 
                 const result = await response.json();
-                
+
                 if (result.error) {
                     throw new Error(`RPC error: ${result.error.message}`);
                 }
-                
+
                 console.log(`Successfully funded account ${account} with ${balance} ETH`);
             } catch (error) {
                 console.error(`Failed to fund account ${account}: ${error}`);
@@ -238,10 +241,10 @@ export class AnvilManager {
         if (!forgeOptions) {
             return [];
         }
-        
+
         const senders: string[] = [];
         const options = forgeOptions.trim().split(/\s+/);
-        
+
         for (let i = 0; i < options.length; i++) {
             if (options[i] === '--sender' && i + 1 < options.length) {
                 const sender = options[i + 1];
@@ -250,7 +253,7 @@ export class AnvilManager {
                 }
             }
         }
-        
+
         return senders;
     }
 

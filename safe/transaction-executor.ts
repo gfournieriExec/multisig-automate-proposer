@@ -97,9 +97,9 @@ export class TransactionExecutor {
                     smartContract: config.smartContract,
                     rpcUrl: config.rpcUrl?.substring(0, 50) + '...',
                     forgeOptions: config.forgeOptions,
-                    envVars: config.envVars ? 'Present' : 'None'
+                    envVars: config.envVars ? 'Present' : 'None',
                 });
-                
+
                 const chainId = await this.runFoundryScript(config);
                 logger.info('Foundry script completed successfully', { chainId });
                 console.log('=== Foundry Script Completed Successfully ===');
@@ -145,15 +145,16 @@ export class TransactionExecutor {
         chainId: string,
     ): Promise<string[]> {
         logger.info('Processing transactions from broadcast file...');
-        
+
         // Extract contract name from script path for consistent naming
         let defaultScriptName = 'IexecLayerZeroBridge';
         if (!config.scriptName) {
-            const scriptPath = config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+            const scriptPath =
+                config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
             const filename = scriptPath.split('/').pop() || '';
             defaultScriptName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
         }
-        
+
         const scriptName = config.scriptName || defaultScriptName;
         console.log('Using script name for broadcast file:', scriptName);
 
@@ -180,11 +181,11 @@ export class TransactionExecutor {
                 { safeAddress: this.safeManager.getSafeAddress() },
             );
         }
-        
+
         // Use the first owner as the 'from' address
         const fromAddress = safeOwners[0];
         console.log(`Using Safe owner as from address: ${fromAddress}`);
-        
+
         const transactionInputs = transactions.map((tx, index) => {
             try {
                 const txInput = {
@@ -333,8 +334,10 @@ export class TransactionExecutor {
                     console.log('Continuing without fork.');
                 } else {
                     // Extract sender addresses from forge options to unlock them
-                    const sendersToUnlock = AnvilManager.extractSenderFromForgeOptions(config.forgeOptions);
-                    
+                    const sendersToUnlock = AnvilManager.extractSenderFromForgeOptions(
+                        config.forgeOptions,
+                    );
+
                     anvilConfig = {
                         forkUrl: config.rpcUrl,
                         port: undefined,
@@ -350,9 +353,9 @@ export class TransactionExecutor {
             }
 
             return new Promise((resolve, reject) => {
-                let command: string = 'forge';
+                const command: string = 'forge';
                 let args: string[];
-                let env = { ...process.env };
+                const env = { ...process.env };
 
                 // Determine the RPC URL to use for forge script
                 const forgeRpcUrl = AnvilManager.getForgeRpcUrl(
@@ -362,8 +365,9 @@ export class TransactionExecutor {
                 );
 
                 // Build forge script command
-                const scriptPath = config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
-                
+                const scriptPath =
+                    config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+
                 // Extract contract name from script path if smartContract is not provided
                 let contractName = config.smartContract;
                 if (!contractName) {
@@ -371,7 +375,7 @@ export class TransactionExecutor {
                     const filename = scriptPath.split('/').pop() || '';
                     contractName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
                 }
-                
+
                 const forgeScript = `${scriptPath}:${contractName}`;
                 args = ['script', forgeScript, '--rpc-url', forgeRpcUrl, '--broadcast', '-vvv'];
 
@@ -401,7 +405,7 @@ export class TransactionExecutor {
 
                 childProcess.on('close', async (code) => {
                     console.log(`Forge process completed with exit code: ${code}`);
-                    
+
                     // Clean up Anvil process
                     this.anvilManager.stop();
 
@@ -445,23 +449,25 @@ export class TransactionExecutor {
     ): Promise<BroadcastTransaction[]> {
         const broadcastPath = getBroadcastFilePath(scriptName, chainId);
         console.log('Reading broadcast file from:', broadcastPath);
-        
+
         try {
             const broadcastData: BroadcastFile = readJsonFile(broadcastPath);
             console.log('Broadcast file loaded successfully');
             console.log('Total transactions in file:', broadcastData.transactions.length);
-            
+
             // Filter for CALL transactions only (deployments and other types should be excluded)
-            const callTransactions = broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
+            const callTransactions = broadcastData.transactions.filter(
+                (tx) => tx.transactionType === 'CALL',
+            );
             console.log('CALL transactions found:', callTransactions.length);
-            
+
             return callTransactions;
         } catch (error) {
             console.error('Error reading broadcast file:', error);
             throw new SafeTransactionError(
                 `Failed to read broadcast file: ${broadcastPath}`,
                 ErrorCode.SAFE_TRANSACTION_FAILED,
-                { scriptName, chainId, error }
+                { scriptName, chainId, error },
             );
         }
     }

@@ -181,7 +181,9 @@ export function readJsonFile<T = any>(filePath: string): T {
  * Validate hex string
  */
 export function isValidHex(value: string): boolean {
-    if (!value) return false;
+    if (!value) {
+        return false;
+    }
     const cleanValue = value.startsWith('0x') ? value.slice(2) : value;
     return /^[0-9a-fA-F]*$/.test(cleanValue);
 }
