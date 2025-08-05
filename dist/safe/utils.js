@@ -15,6 +15,7 @@ exports.fileExists = fileExists;
 exports.readJsonFile = readJsonFile;
 exports.isValidHex = isValidHex;
 exports.isValidAddress = isValidAddress;
+exports.toChecksumAddress = toChecksumAddress;
 exports.formatWeiToEther = formatWeiToEther;
 exports.getBroadcastFilePath = getBroadcastFilePath;
 exports.delay = delay;
@@ -191,6 +192,18 @@ function isValidAddress(address) {
     }
     catch {
         return false;
+    }
+}
+/**
+ * Convert address to checksum format
+ */
+function toChecksumAddress(address) {
+    try {
+        return ethers_1.ethers.getAddress(address);
+    }
+    catch (error) {
+        console.warn(`Invalid address format: ${address}`);
+        return address; // Return original if conversion fails
     }
 }
 /**

@@ -55,6 +55,10 @@ export declare function isValidHex(value: string): boolean;
  */
 export declare function isValidAddress(address: string): boolean;
 /**
+ * Convert address to checksum format
+ */
+export declare function toChecksumAddress(address: string): string;
+/**
  * Format wei to ether for display
  */
 export declare function formatWeiToEther(wei: string): string;

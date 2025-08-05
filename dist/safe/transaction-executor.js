@@ -99,7 +99,7 @@ class TransactionExecutor {
         const transactionInputs = transactions.map((tx, index) => {
             try {
                 const txInput = {
-                    to: tx.transaction.to,
+                    to: (0, utils_1.toChecksumAddress)(tx.transaction.to),
                     from: fromAddress, // Use one of the Safe owners
                     value: (0, utils_1.convertHexToDecimal)(tx.transaction.value),
                     data: tx.transaction.input,
