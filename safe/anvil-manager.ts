@@ -93,6 +93,15 @@ export class AnvilManager {
                     this.isStarted = true;
                     this.currentConfig = config;
                     console.log(`Anvil fork started successfully on ${host}:${port}`);
+                    
+                    // Fund any unlock accounts after startup
+                    if (config.unlockAccounts && config.unlockAccounts.length > 0) {
+                        this.fundUnlockAccounts(config.unlockAccounts, balance, host, port)
+                            .catch((error: Error) => {
+                                console.error(`Failed to fund unlock accounts: ${error.message}`);
+                            });
+                    }
+                    
                     resolve(this.anvilProcess!);
                 }
             });
@@ -171,6 +180,55 @@ export class AnvilManager {
      */
     getProcess(): ChildProcess | null {
         return this.anvilProcess;
+    }
+
+    /**
+     * Fund unlock accounts using Anvil RPC calls
+     */
+    private async fundUnlockAccounts(
+        accounts: string[],
+        balance: number,
+        host: string,
+        port: number,
+    ): Promise<void> {
+        const rpcUrl = host === '0.0.0.0' ? `http://localhost:${port}` : `http://${host}:${port}`;
+        
+        // Convert balance from ETH to Wei (18 decimals)
+        const balanceWei = `0x${(BigInt(balance) * BigInt(10) ** BigInt(18)).toString(16)}`;
+        
+        console.log(`Funding ${accounts.length} unlock account(s) with ${balance} ETH each...`);
+        
+        for (const account of accounts) {
+            try {
+                const response = await fetch(rpcUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        method: 'anvil_setBalance',
+                        params: [account, balanceWei],
+                        id: 1,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(`RPC error: ${result.error.message}`);
+                }
+                
+                console.log(`Successfully funded account ${account} with ${balance} ETH`);
+            } catch (error) {
+                console.error(`Failed to fund account ${account}: ${error}`);
+                throw error;
+            }
+        }
     }
 
     /**

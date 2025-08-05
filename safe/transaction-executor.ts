@@ -343,8 +343,8 @@ export class TransactionExecutor {
 
                     await this.anvilManager.startFork(anvilConfig);
 
-                    // Wait a bit for Anvil to start
-                    await sleep(3000);
+                    // Wait for Anvil to start and accounts to be funded
+                    await sleep(5000);
                 }
             }
 
