@@ -41,6 +41,10 @@ export declare class AnvilManager {
      */
     getProcess(): ChildProcess | null;
     /**
+     * Fund unlock accounts using Anvil RPC calls
+     */
+    private fundUnlockAccounts;
+    /**
      * Extract sender addresses from forge options string
      */
     static extractSenderFromForgeOptions(forgeOptions?: string): string[];

@@ -217,8 +217,8 @@ class TransactionExecutor {
                         unlockAccounts: sendersToUnlock,
                     };
                     await this.anvilManager.startFork(anvilConfig);
-                    // Wait a bit for Anvil to start
-                    await (0, utils_1.sleep)(3000);
+                    // Wait for Anvil to start and accounts to be funded
+                    await (0, utils_1.sleep)(5000);
                 }
             }
             return new Promise((resolve, reject) => {
