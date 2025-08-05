@@ -88,10 +88,19 @@ class TransactionExecutor {
             transactionCount: transactions.length,
         });
         // Validate and convert broadcast transactions to transaction inputs
+        // Get one of the Safe owners to use as the 'from' address
+        const safeOwners = await this.safeManager.getSafeOwners();
+        if (safeOwners.length === 0) {
+            throw new errors_1.SafeTransactionError('No owners found for the Safe', errors_1.ErrorCode.INVALID_CONFIGURATION, { safeAddress: this.safeManager.getSafeAddress() });
+        }
+        // Use the first owner as the 'from' address
+        const fromAddress = safeOwners[0];
+        console.log(`Using Safe owner as from address: ${fromAddress}`);
         const transactionInputs = transactions.map((tx, index) => {
             try {
                 const txInput = {
                     to: tx.transaction.to,
+                    from: fromAddress, // Use one of the Safe owners
                     value: (0, utils_1.convertHexToDecimal)(tx.transaction.value),
                     data: tx.transaction.input,
                     operation: 'call',
