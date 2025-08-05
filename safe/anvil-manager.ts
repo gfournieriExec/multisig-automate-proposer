@@ -66,11 +66,10 @@ export class AnvilManager {
                 balance.toString(),
             ];
 
-            // Add unlock accounts if specified
+            // Add auto-impersonate if we have accounts to unlock
             if (config.unlockAccounts && config.unlockAccounts.length > 0) {
-                config.unlockAccounts.forEach(account => {
-                    anvilArgs.push('--unlock', account);
-                });
+                anvilArgs.push('--auto-impersonate');
+                console.log(`Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`);
             }
 
             console.log(`Anvil command: anvil ${anvilArgs.join(' ')}`);
@@ -175,73 +174,12 @@ export class AnvilManager {
     }
 
     /**
-     * Fund specific accounts on the running Anvil instance using cast rpc
-     */
-    async fundAccounts(accounts: string[], balance: string = '10000'): Promise<void> {
-        if (!this.isRunning() || accounts.length === 0 || !this.currentConfig) {
-            return;
-        }
-
-        const port = this.currentConfig.port || 8545;
-        const host = this.currentConfig.host === '0.0.0.0' ? 'localhost' : (this.currentConfig.host || 'localhost');
-        const rpcUrl = `http://${host}:${port}`;
-        const balanceWei = `0x${(BigInt(balance) * BigInt(10 ** 18)).toString(16)}`;
-
-        console.log(`Funding ${accounts.length} account(s) with ${balance} ETH each...`);
-
-        for (const account of accounts) {
-            try {
-                console.log(`Setting balance for account: ${account}`);
-                // Use cast rpc to directly set the account balance
-                const { spawn } = await import('child_process');
-                
-                const fundProcess = spawn('cast', [
-                    'rpc',
-                    'anvil_setBalance',
-                    account,
-                    balanceWei,
-                    '--rpc-url',
-                    rpcUrl,
-                ], {
-                    stdio: 'pipe',
-                });
-
-                await new Promise((resolve, reject) => {
-                    fundProcess.on('close', (code) => {
-                        if (code === 0) {
-                            console.log(`Successfully funded ${account}`);
-                            resolve(void 0);
-                        } else {
-                            console.warn(`Failed to fund ${account} with exit code ${code}`);
-                            resolve(void 0); // Don't fail the whole process
-                        }
-                    });
-
-                    fundProcess.on('error', (error) => {
-                        console.warn(`Error funding ${account}:`, error.message);
-                        resolve(void 0); // Don't fail the whole process
-                    });
-
-                    // Timeout after 10 seconds
-                    setTimeout(() => {
-                        fundProcess.kill();
-                        console.warn(`Timeout funding ${account}`);
-                        resolve(void 0);
-                    }, 10000);
-                });
-            } catch (error) {
-                console.warn(`Error funding account ${account}:`, error);
-            }
-        }
-
-        console.log('Account funding completed');
-    }
-
-    /**
      * Extract sender addresses from forge options string
      */
     static extractSenderFromForgeOptions(forgeOptions?: string): string[] {
-        if (!forgeOptions) return [];
+        if (!forgeOptions) {
+            return [];
+        }
         
         const senders: string[] = [];
         const options = forgeOptions.trim().split(/\s+/);

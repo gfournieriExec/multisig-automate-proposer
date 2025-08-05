@@ -41,10 +41,6 @@ export declare class AnvilManager {
      */
     getProcess(): ChildProcess | null;
     /**
-     * Fund specific accounts on the running Anvil instance using cast rpc
-     */
-    fundAccounts(accounts: string[], balance?: string): Promise<void>;
-    /**
      * Extract sender addresses from forge options string
      */
     static extractSenderFromForgeOptions(forgeOptions?: string): string[];

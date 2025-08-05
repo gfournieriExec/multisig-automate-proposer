@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnvilManager = void 0;
 const child_process_1 = require("child_process");
@@ -85,11 +52,10 @@ class AnvilManager {
                 '--balance',
                 balance.toString(),
             ];
-            // Add unlock accounts if specified
+            // Add auto-impersonate if we have accounts to unlock
             if (config.unlockAccounts && config.unlockAccounts.length > 0) {
-                config.unlockAccounts.forEach(account => {
-                    anvilArgs.push('--unlock', account);
-                });
+                anvilArgs.push('--auto-impersonate');
+                console.log(`Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`);
             }
             console.log(`Anvil command: anvil ${anvilArgs.join(' ')}`);
             this.anvilProcess = (0, child_process_1.spawn)('anvil', anvilArgs, {
@@ -179,67 +145,12 @@ class AnvilManager {
         return this.anvilProcess;
     }
     /**
-     * Fund specific accounts on the running Anvil instance using cast rpc
-     */
-    async fundAccounts(accounts, balance = '10000') {
-        if (!this.isRunning() || accounts.length === 0 || !this.currentConfig) {
-            return;
-        }
-        const port = this.currentConfig.port || 8545;
-        const host = this.currentConfig.host === '0.0.0.0' ? 'localhost' : (this.currentConfig.host || 'localhost');
-        const rpcUrl = `http://${host}:${port}`;
-        const balanceWei = `0x${(BigInt(balance) * BigInt(10 ** 18)).toString(16)}`;
-        console.log(`Funding ${accounts.length} account(s) with ${balance} ETH each...`);
-        for (const account of accounts) {
-            try {
-                console.log(`Setting balance for account: ${account}`);
-                // Use cast rpc to directly set the account balance
-                const { spawn } = await Promise.resolve().then(() => __importStar(require('child_process')));
-                const fundProcess = spawn('cast', [
-                    'rpc',
-                    'anvil_setBalance',
-                    account,
-                    balanceWei,
-                    '--rpc-url',
-                    rpcUrl,
-                ], {
-                    stdio: 'pipe',
-                });
-                await new Promise((resolve, reject) => {
-                    fundProcess.on('close', (code) => {
-                        if (code === 0) {
-                            console.log(`Successfully funded ${account}`);
-                            resolve(void 0);
-                        }
-                        else {
-                            console.warn(`Failed to fund ${account} with exit code ${code}`);
-                            resolve(void 0); // Don't fail the whole process
-                        }
-                    });
-                    fundProcess.on('error', (error) => {
-                        console.warn(`Error funding ${account}:`, error.message);
-                        resolve(void 0); // Don't fail the whole process
-                    });
-                    // Timeout after 10 seconds
-                    setTimeout(() => {
-                        fundProcess.kill();
-                        console.warn(`Timeout funding ${account}`);
-                        resolve(void 0);
-                    }, 10000);
-                });
-            }
-            catch (error) {
-                console.warn(`Error funding account ${account}:`, error);
-            }
-        }
-        console.log('Account funding completed');
-    }
-    /**
      * Extract sender addresses from forge options string
      */
     static extractSenderFromForgeOptions(forgeOptions) {
-        if (!forgeOptions)
+        if (!forgeOptions) {
             return [];
+        }
         const senders = [];
         const options = forgeOptions.trim().split(/\s+/);
         for (let i = 0; i < options.length; i++) {

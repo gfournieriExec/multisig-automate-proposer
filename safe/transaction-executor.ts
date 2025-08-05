@@ -345,12 +345,6 @@ export class TransactionExecutor {
 
                     // Wait a bit for Anvil to start
                     await sleep(3000);
-
-                    // Fund the sender accounts if any were specified
-                    if (sendersToUnlock.length > 0) {
-                        await this.anvilManager.fundAccounts(sendersToUnlock);
-                        await sleep(1000); // Wait for funding transactions to be mined
-                    }
                 }
             }
 

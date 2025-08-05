@@ -219,11 +219,6 @@ class TransactionExecutor {
                     await this.anvilManager.startFork(anvilConfig);
                     // Wait a bit for Anvil to start
                     await (0, utils_1.sleep)(3000);
-                    // Fund the sender accounts if any were specified
-                    if (sendersToUnlock.length > 0) {
-                        await this.anvilManager.fundAccounts(sendersToUnlock);
-                        await (0, utils_1.sleep)(1000); // Wait for funding transactions to be mined
-                    }
                 }
             }
             return new Promise((resolve, reject) => {
