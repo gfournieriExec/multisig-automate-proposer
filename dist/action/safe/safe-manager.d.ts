@@ -48,6 +48,18 @@ export declare class SafeManager {
      */
     getCurrentNonce(): Promise<number>;
     /**
+     * Get Safe information including owners
+     */
+    getSafeInfo(): Promise<import("@safe-global/api-kit").SafeInfoResponse>;
+    /**
+     * Get all owners of the Safe
+     */
+    getSafeOwners(): Promise<string[]>;
+    /**
+     * Get the Safe address
+     */
+    getSafeAddress(): string;
+    /**
      * Propose a transaction to the Safe with explicit nonce
      */
     proposeTransactionWithNonce(transactionData: MetaTransactionData, nonce: number): Promise<string>;

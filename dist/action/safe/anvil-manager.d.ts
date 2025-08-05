@@ -4,10 +4,14 @@ export interface AnvilConfig {
     host?: string;
     forkUrl: string;
     timeout?: number;
+    accounts?: number;
+    balance?: number;
+    unlockAccounts?: string[];
 }
 export declare class AnvilManager {
     private anvilProcess;
     private isStarted;
+    private currentConfig;
     /**
      * Check if Anvil is available on the system
      */
@@ -36,6 +40,10 @@ export declare class AnvilManager {
      * Get the current Anvil process
      */
     getProcess(): ChildProcess | null;
+    /**
+     * Extract sender addresses from forge options string
+     */
+    static extractSenderFromForgeOptions(forgeOptions?: string): string[];
     /**
      * Determine if a fork should be started based on RPC URL
      */

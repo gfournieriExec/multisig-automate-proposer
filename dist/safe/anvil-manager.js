@@ -40,6 +40,13 @@ class AnvilManager {
             const accounts = config.accounts || 10;
             const balance = config.balance || 10000;
             console.log(`Starting Anvil fork from: ${config.forkUrl}`);
+            if (config.unlockAccounts && config.unlockAccounts.length > 0) {
+                console.log(`Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`);
+                console.log(`Accounts to unlock: ${config.unlockAccounts.join(', ')}`);
+            }
+            else {
+                console.log('No accounts to unlock - auto-impersonate will not be enabled');
+            }
             const anvilArgs = [
                 '--fork-url',
                 config.forkUrl,
@@ -148,19 +155,28 @@ class AnvilManager {
      * Extract sender addresses from forge options string
      */
     static extractSenderFromForgeOptions(forgeOptions) {
+        console.log(`Extracting senders from forge options: "${forgeOptions}"`);
         if (!forgeOptions) {
+            console.log('No forge options provided, returning empty array');
             return [];
         }
         const senders = [];
         const options = forgeOptions.trim().split(/\s+/);
+        console.log(`Split options: ${JSON.stringify(options)}`);
         for (let i = 0; i < options.length; i++) {
             if (options[i] === '--sender' && i + 1 < options.length) {
                 const sender = options[i + 1];
+                console.log(`Found --sender flag with value: "${sender}"`);
                 if (sender && sender.startsWith('0x')) {
                     senders.push(sender);
+                    console.log(`Added sender to unlock: ${sender}`);
+                }
+                else {
+                    console.log(`Sender does not start with 0x, skipping: "${sender}"`);
                 }
             }
         }
+        console.log(`Final senders array: ${JSON.stringify(senders)}`);
         return senders;
     }
     /**
