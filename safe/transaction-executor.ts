@@ -14,6 +14,7 @@ import {
     parseEnvironmentVariables,
     readJsonFile,
     sleep,
+    toChecksumAddress,
 } from './utils';
 import { Validator } from './validation';
 
@@ -187,7 +188,7 @@ export class TransactionExecutor {
         const transactionInputs = transactions.map((tx, index) => {
             try {
                 const txInput = {
-                    to: tx.transaction.to,
+                    to: toChecksumAddress(tx.transaction.to),
                     from: fromAddress, // Use one of the Safe owners
                     value: convertHexToDecimal(tx.transaction.value),
                     data: tx.transaction.input,

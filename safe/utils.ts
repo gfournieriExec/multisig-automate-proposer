@@ -198,6 +198,18 @@ export function isValidAddress(address: string): boolean {
 }
 
 /**
+ * Convert address to checksum format
+ */
+export function toChecksumAddress(address: string): string {
+    try {
+        return ethers.getAddress(address);
+    } catch (error) {
+        console.warn(`Invalid address format: ${address}`);
+        return address; // Return original if conversion fails
+    }
+}
+
+/**
  * Format wei to ether for display
  */
 export function formatWeiToEther(wei: string): string {
