@@ -5,11 +5,15 @@ export interface AnvilConfig {
     host?: string;
     forkUrl: string;
     timeout?: number;
+    accounts?: number;
+    balance?: number;
+    unlockAccounts?: string[];
 }
 
 export class AnvilManager {
     private anvilProcess: ChildProcess | null = null;
     private isStarted: boolean = false;
+    private currentConfig: AnvilConfig | null = null;
 
     /**
      * Check if Anvil is available on the system
@@ -44,6 +48,8 @@ export class AnvilManager {
             const port = config.port || 8545;
             const host = config.host || '0.0.0.0';
             const timeout = config.timeout || 30000;
+            const accounts = config.accounts || 10;
+            const balance = config.balance || 10000;
 
             console.log(`Starting Anvil fork from: ${config.forkUrl}`);
 
@@ -54,7 +60,18 @@ export class AnvilManager {
                 host,
                 '--port',
                 port.toString(),
+                '--accounts',
+                accounts.toString(),
+                '--balance',
+                balance.toString(),
             ];
+
+            // Add unlock accounts if specified
+            if (config.unlockAccounts && config.unlockAccounts.length > 0) {
+                config.unlockAccounts.forEach(account => {
+                    anvilArgs.push('--unlock', account);
+                });
+            }
 
             console.log(`Anvil command: anvil ${anvilArgs.join(' ')}`);
 
@@ -75,6 +92,7 @@ export class AnvilManager {
                 if (output.includes('Listening on') && !startupComplete) {
                     startupComplete = true;
                     this.isStarted = true;
+                    this.currentConfig = config;
                     console.log(`Anvil fork started successfully on ${host}:${port}`);
                     resolve(this.anvilProcess!);
                 }
@@ -139,6 +157,7 @@ export class AnvilManager {
     private cleanup(): void {
         this.anvilProcess = null;
         this.isStarted = false;
+        this.currentConfig = null;
     }
 
     /**
@@ -153,6 +172,90 @@ export class AnvilManager {
      */
     getProcess(): ChildProcess | null {
         return this.anvilProcess;
+    }
+
+    /**
+     * Fund specific accounts on the running Anvil instance using cast rpc
+     */
+    async fundAccounts(accounts: string[], balance: string = '10000'): Promise<void> {
+        if (!this.isRunning() || accounts.length === 0 || !this.currentConfig) {
+            return;
+        }
+
+        const port = this.currentConfig.port || 8545;
+        const host = this.currentConfig.host === '0.0.0.0' ? 'localhost' : (this.currentConfig.host || 'localhost');
+        const rpcUrl = `http://${host}:${port}`;
+        const balanceWei = `0x${(BigInt(balance) * BigInt(10 ** 18)).toString(16)}`;
+
+        console.log(`Funding ${accounts.length} account(s) with ${balance} ETH each...`);
+
+        for (const account of accounts) {
+            try {
+                console.log(`Setting balance for account: ${account}`);
+                // Use cast rpc to directly set the account balance
+                const { spawn } = await import('child_process');
+                
+                const fundProcess = spawn('cast', [
+                    'rpc',
+                    'anvil_setBalance',
+                    account,
+                    balanceWei,
+                    '--rpc-url',
+                    rpcUrl,
+                ], {
+                    stdio: 'pipe',
+                });
+
+                await new Promise((resolve, reject) => {
+                    fundProcess.on('close', (code) => {
+                        if (code === 0) {
+                            console.log(`Successfully funded ${account}`);
+                            resolve(void 0);
+                        } else {
+                            console.warn(`Failed to fund ${account} with exit code ${code}`);
+                            resolve(void 0); // Don't fail the whole process
+                        }
+                    });
+
+                    fundProcess.on('error', (error) => {
+                        console.warn(`Error funding ${account}:`, error.message);
+                        resolve(void 0); // Don't fail the whole process
+                    });
+
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        fundProcess.kill();
+                        console.warn(`Timeout funding ${account}`);
+                        resolve(void 0);
+                    }, 10000);
+                });
+            } catch (error) {
+                console.warn(`Error funding account ${account}:`, error);
+            }
+        }
+
+        console.log('Account funding completed');
+    }
+
+    /**
+     * Extract sender addresses from forge options string
+     */
+    static extractSenderFromForgeOptions(forgeOptions?: string): string[] {
+        if (!forgeOptions) return [];
+        
+        const senders: string[] = [];
+        const options = forgeOptions.trim().split(/\s+/);
+        
+        for (let i = 0; i < options.length; i++) {
+            if (options[i] === '--sender' && i + 1 < options.length) {
+                const sender = options[i + 1];
+                if (sender && sender.startsWith('0x')) {
+                    senders.push(sender);
+                }
+            }
+        }
+        
+        return senders;
     }
 
     /**

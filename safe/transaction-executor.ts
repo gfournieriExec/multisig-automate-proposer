@@ -331,16 +331,26 @@ export class TransactionExecutor {
                     );
                     console.log('Continuing without fork.');
                 } else {
+                    // Extract sender addresses from forge options to unlock them
+                    const sendersToUnlock = AnvilManager.extractSenderFromForgeOptions(config.forgeOptions);
+                    
                     anvilConfig = {
                         forkUrl: config.rpcUrl,
                         port: undefined,
                         host: undefined,
+                        unlockAccounts: sendersToUnlock,
                     };
 
                     await this.anvilManager.startFork(anvilConfig);
 
                     // Wait a bit for Anvil to start
                     await sleep(3000);
+
+                    // Fund the sender accounts if any were specified
+                    if (sendersToUnlock.length > 0) {
+                        await this.anvilManager.fundAccounts(sendersToUnlock);
+                        await sleep(1000); // Wait for funding transactions to be mined
+                    }
                 }
             }
 
