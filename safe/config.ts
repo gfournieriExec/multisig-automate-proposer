@@ -20,8 +20,7 @@ export interface OwnerConfig {
     privateKey: string;
 }
 
-export function getSafeConfig(): SafeConfig {
-    const chainId = process.env.CHAIN_ID || '11155111'; // Default to Sepolia
+export async function getSafeConfig(): Promise<SafeConfig> {
     const rpcUrl = process.env.RPC_URL;
     const safeAddress = process.env.SAFE_ADDRESS;
     const apiKey = process.env.SAFE_API_KEY;
@@ -47,14 +46,30 @@ export function getSafeConfig(): SafeConfig {
         });
     }
 
+    // Get chain ID from RPC URL
+    let chainId: bigint;
+    try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const network = await provider.getNetwork();
+        chainId = network.chainId;
+        
+        logger.info('Chain ID retrieved from RPC', { chainId: chainId.toString() });
+    } catch (error) {
+        logger.error('Failed to get chain ID from RPC URL', error as Error);
+        throw new ConfigurationError('Could not retrieve chain ID from RPC URL', {
+            rpcUrl,
+            error: (error as Error).message,
+        });
+    }
+
     // Validate configuration
     try {
         Validator.validateRpcUrl(rpcUrl);
         Validator.validateAddress(safeAddress, 'SAFE_ADDRESS');
-        Validator.validateChainId(chainId);
+        Validator.validateChainId(chainId.toString());
 
         logger.info('Safe configuration validated successfully', {
-            chainId,
+            chainId: chainId.toString(),
             rpcUrl: rpcUrl.substring(0, 20) + '...', // Log truncated URL for security
             safeAddress,
         });
@@ -65,7 +80,7 @@ export function getSafeConfig(): SafeConfig {
 
     return {
         rpcUrl,
-        chainId: BigInt(chainId),
+        chainId,
         safeAddress,
         apiKey,
     };
@@ -104,11 +119,11 @@ export function getProposerConfig(): OwnerConfig {
     }
 }
 
-export function validateEnvironment(): void {
+export async function validateEnvironment(): Promise<void> {
     logger.info('Validating environment configuration...');
 
     try {
-        getSafeConfig();
+        await getSafeConfig();
         getProposerConfig();
 
         // Additional validation
