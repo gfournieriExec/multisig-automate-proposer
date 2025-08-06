@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     try {
         validateEnvironment();
 
-        const safeManager = new SafeManager();
+        const safeManager = await SafeManager.create();
         const transactionType = parsedArgs.type || 'pending';
 
         console.log(`Fetching ${transactionType} transactions...`);

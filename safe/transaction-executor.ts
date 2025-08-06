@@ -70,9 +70,16 @@ export class TransactionExecutor {
     private safeManager: SafeManager;
     private anvilManager: AnvilManager;
 
-    constructor() {
-        this.safeManager = new SafeManager();
+    private constructor(safeManager: SafeManager) {
+        this.safeManager = safeManager;
         this.anvilManager = new AnvilManager();
+    }
+    /**
+     * Static factory method to create and initialize TransactionExecutor
+     */
+    static async create(): Promise<TransactionExecutor> {
+        const safeManager = await SafeManager.create();
+        return new TransactionExecutor(safeManager);
     }
 
     /**
@@ -572,7 +579,7 @@ Available scripts: ${getAvailableScripts().join(', ')}
     try {
         validateEnvironment();
 
-        const executor = new TransactionExecutor();
+        const executor = await TransactionExecutor.create();
         await executeScriptCommand(executor, args);
     } catch (error) {
         console.error('Execution failed:', error);

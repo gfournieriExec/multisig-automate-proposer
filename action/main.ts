@@ -101,7 +101,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
             dryRun: this.inputs.dryRun,
         });
 
-        const executor = new TransactionExecutor();
+        const executor = await TransactionExecutor.create();
 
         try {
             // Configure execution parameters based on inputs
@@ -137,7 +137,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
         logger.info('Listing pending transactions');
 
         try {
-            const safeManager = new SafeManager();
+            const safeManager = await SafeManager.create();
             const pendingTxs = await safeManager.getPendingTransactions();
 
             // Output pending transactions as JSON

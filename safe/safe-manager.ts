@@ -14,20 +14,24 @@ import { Validator } from './validation';
 
 export class SafeManager {
     private apiKit: SafeApiKit;
-    private safeConfig: ReturnType<typeof getSafeConfig>;
+    private safeConfig: Awaited<ReturnType<typeof getSafeConfig>>; // Fix this line
 
-    constructor() {
+   private constructor(safeConfig: Awaited<ReturnType<typeof getSafeConfig>>) {
+        this.safeConfig = safeConfig;
+        this.apiKit = new SafeApiKit({
+            chainId: this.safeConfig.chainId,
+        });
+
+        logger.info('SafeManager initialized successfully', {
+            chainId: this.safeConfig.chainId,
+            safeAddress: this.safeConfig.safeAddress,
+        });
+    }
+
+    static async create(): Promise<SafeManager> {
         try {
-            this.safeConfig = getSafeConfig();
-
-            this.apiKit = new SafeApiKit({
-                chainId: this.safeConfig.chainId,
-            });
-
-            logger.info('SafeManager initialized successfully', {
-                chainId: this.safeConfig.chainId,
-                safeAddress: this.safeConfig.safeAddress,
-            });
+            const safeConfig = await getSafeConfig();
+            return new SafeManager(safeConfig);
         } catch (error) {
             logger.error('Failed to initialize SafeManager', { error });
             throw new ConfigurationError('SafeManager initialization failed', {
