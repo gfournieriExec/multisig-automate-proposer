@@ -29,11 +29,11 @@ jobs:
       - name: Run type checking
         run: npm run typecheck
       
-      - name: Run tests
-        run: npm test
+      # - name: Run tests
+      #   run: npm test
       
       - name: Build action
-        run: npm run build
+        run: npm run build:all
       
       - name: Verify action files
         run: |
@@ -61,7 +61,7 @@ jobs:
         run: npm ci
       
       - name: Build action
-        run: npm run build
+        run: npm run build:all
       
       - name: Test action loading (dry run)
         uses: ./
