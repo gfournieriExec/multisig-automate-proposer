@@ -577,7 +577,7 @@ Available scripts: ${getAvailableScripts().join(', ')}
     }
 
     try {
-        validateEnvironment();
+        await validateEnvironment();
 
         const executor = await TransactionExecutor.create();
         await executeScriptCommand(executor, args);

@@ -67,7 +67,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
 
     private async validateInputs(): Promise<void> {
         try {
-            validateEnvironment();
+            await validateEnvironment();
 
             // Validate chain ID matches network
             const chainId = await getChainIdFromRpc(this.inputs.rpcUrl);

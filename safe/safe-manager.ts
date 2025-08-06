@@ -16,7 +16,7 @@ export class SafeManager {
     private apiKit: SafeApiKit;
     private safeConfig: Awaited<ReturnType<typeof getSafeConfig>>; // Fix this line
 
-   private constructor(safeConfig: Awaited<ReturnType<typeof getSafeConfig>>) {
+    private constructor(safeConfig: Awaited<ReturnType<typeof getSafeConfig>>) {
         this.safeConfig = safeConfig;
         this.apiKit = new SafeApiKit({
             chainId: this.safeConfig.chainId,

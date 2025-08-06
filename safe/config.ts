@@ -52,7 +52,7 @@ export async function getSafeConfig(): Promise<SafeConfig> {
         const provider = new ethers.JsonRpcProvider(rpcUrl);
         const network = await provider.getNetwork();
         chainId = network.chainId;
-        
+
         logger.info('Chain ID retrieved from RPC', { chainId: chainId.toString() });
     } catch (error) {
         logger.error('Failed to get chain ID from RPC URL', error as Error);
