@@ -24,7 +24,7 @@ class GitHubActionRunner {
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
             foundryScriptArgs: core.getInput('foundry-script-args') || '',
             actionMode: core.getInput('action-mode') || 'propose',
-            dryRun: core.getBooleanInput('dry-run'),
+            dryRun: core.getBooleanInput('dry-run') || false,
         };
     }
     setupEnvironment() {
