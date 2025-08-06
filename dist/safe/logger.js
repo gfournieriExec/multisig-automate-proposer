@@ -45,8 +45,9 @@ class Logger {
         }
     }
     initializeFileLogging() {
-        if (!this.config.logDirectory)
+        if (!this.config.logDirectory) {
             return;
+        }
         // Create log directory if it doesn't exist
         if (!fs.existsSync(this.config.logDirectory)) {
             fs.mkdirSync(this.config.logDirectory, { recursive: true });
@@ -58,8 +59,9 @@ class Logger {
         this.rotateLogsIfNeeded();
     }
     rotateLogsIfNeeded() {
-        if (!this.logFilePath || !fs.existsSync(this.logFilePath))
+        if (!this.logFilePath || !fs.existsSync(this.logFilePath)) {
             return;
+        }
         const stats = fs.statSync(this.logFilePath);
         const fileSizeMB = stats.size / (1024 * 1024);
         if (fileSizeMB > (this.config.maxFileSize || 10)) {
@@ -67,8 +69,9 @@ class Logger {
         }
     }
     rotateLogs() {
-        if (!this.config.logDirectory)
+        if (!this.config.logDirectory) {
             return;
+        }
         const logFiles = fs
             .readdirSync(this.config.logDirectory)
             .filter((file) => file.startsWith('app-') && file.endsWith('.log'))
@@ -79,7 +82,9 @@ class Logger {
         if (logFiles.length >= maxFiles) {
             const filesToRemove = logFiles.slice(maxFiles - 1);
             filesToRemove.forEach((file) => {
-                fs.unlinkSync(path.join(this.config.logDirectory, file));
+                if (this.config.logDirectory) {
+                    fs.unlinkSync(path.join(this.config.logDirectory, file));
+                }
             });
         }
         // Create new log file
@@ -97,12 +102,16 @@ class Logger {
                 timestamp,
                 level: levelName,
                 message,
-                ...(metadata && { metadata: this.sanitizeMetadata(metadata) }),
+                ...(metadata && {
+                    metadata: this.sanitizeMetadata(metadata),
+                }),
             };
             return JSON.stringify(logEntry);
         }
         else {
-            const metadataStr = metadata ? ` ${JSON.stringify(this.sanitizeMetadata(metadata))}` : '';
+            const metadataStr = metadata
+                ? ` ${JSON.stringify(this.sanitizeMetadata(metadata))}`
+                : '';
             return `[${timestamp}] ${levelName}: ${message}${metadataStr}`;
         }
     }
@@ -120,7 +129,7 @@ class Logger {
             return obj;
         }
         if (Array.isArray(obj)) {
-            return obj.map(item => this.sanitizeMetadata(item));
+            return obj.map((item) => this.sanitizeMetadata(item));
         }
         const sanitized = {};
         for (const [key, value] of Object.entries(obj)) {
@@ -129,20 +138,22 @@ class Logger {
         return sanitized;
     }
     writeToFile(formattedMessage) {
-        if (!this.config.enableFile || !this.logFilePath)
+        if (!this.config.enableFile || !this.logFilePath) {
             return;
+        }
         try {
             fs.appendFileSync(this.logFilePath, formattedMessage + '\n');
             this.rotateLogsIfNeeded();
         }
         catch (error) {
-            // Fallback to console if file writing fails
-            console.error('Failed to write to log file:', error);
+            // Fallback to stderr if file writing fails (avoid using console to prevent lint issues)
+            process.stderr.write(`Failed to write to log file: ${String(error)}\n`);
         }
     }
     writeToConsole(level, formattedMessage) {
-        if (!this.config.enableConsole)
+        if (!this.config.enableConsole) {
             return;
+        }
         const colors = {
             [LogLevel.ERROR]: '\x1b[31m', // Red
             [LogLevel.WARN]: '\x1b[33m', // Yellow
@@ -152,15 +163,16 @@ class Logger {
         const reset = '\x1b[0m';
         const colorCode = colors[level] || '';
         if (this.config.format === 'json') {
-            console.log(formattedMessage);
+            process.stdout.write(formattedMessage + '\n');
         }
         else {
-            console.log(`${colorCode}${formattedMessage}${reset}`);
+            process.stdout.write(`${colorCode}${formattedMessage}${reset}\n`);
         }
     }
     log(level, message, metadata) {
-        if (!this.shouldLog(level))
+        if (!this.shouldLog(level)) {
             return;
+        }
         const formattedMessage = this.formatMessage(level, message, metadata);
         this.writeToConsole(level, formattedMessage);
         this.writeToFile(formattedMessage);
@@ -227,20 +239,18 @@ function createLogger(context) {
     });
 }
 // Performance measurement utility
-function measurePerformance(operation, fn, loggerInstance = exports.logger) {
-    return new Promise(async (resolve, reject) => {
-        const start = Date.now();
-        try {
-            const result = await fn();
-            const duration = Date.now() - start;
-            loggerInstance.performance(operation, duration);
-            resolve(result);
-        }
-        catch (error) {
-            const duration = Date.now() - start;
-            loggerInstance.error(`Performance: ${operation} failed after ${duration}ms`, error);
-            reject(error);
-        }
-    });
+async function measurePerformance(operation, fn, loggerInstance = exports.logger) {
+    const start = Date.now();
+    try {
+        const result = await fn();
+        const duration = Date.now() - start;
+        loggerInstance.performance(operation, duration);
+        return result;
+    }
+    catch (error) {
+        const duration = Date.now() - start;
+        loggerInstance.error(`Performance: ${operation} failed after ${duration}ms`, error);
+        throw error;
+    }
 }
 //# sourceMappingURL=logger.js.map

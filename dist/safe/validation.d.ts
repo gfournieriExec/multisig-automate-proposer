@@ -37,9 +37,45 @@ export declare class Validator {
         operation?: string | number;
     }): void;
     /**
+     * Validate transaction value
+     */
+    private static validateTransactionValue;
+    /**
+     * Validate transaction data field
+     */
+    private static validateTransactionData_Data;
+    /**
+     * Validate transaction operation
+     */
+    private static validateTransactionOperation;
+    /**
+     * Validate string operation type
+     */
+    private static validateStringOperation;
+    /**
+     * Validate numeric operation type
+     */
+    private static validateNumericOperation;
+    /**
      * Validate environment variables
      */
-    static validateEnvironmentVariables(envVars: Record<string, any>): ValidationResult;
+    static validateEnvironmentVariables(envVars: Record<string, unknown>): ValidationResult;
+    /**
+     * Validate required environment variables
+     */
+    private static validateRequiredEnvVars;
+    /**
+     * Validate environment variable formats
+     */
+    private static validateEnvVarFormats;
+    /**
+     * Validate a specific environment variable format
+     */
+    private static validateEnvVarFormat;
+    /**
+     * Check for production security issues
+     */
+    private static checkProductionSecurity;
     /**
      * Validate file path and permissions
      */
@@ -63,8 +99,8 @@ export interface ValidationSchema {
         minLength?: number;
         maxLength?: number;
         pattern?: RegExp;
-        custom?: (value: any) => void;
+        custom?: (value: unknown) => void;
     };
 }
-export declare function validateSchema(data: Record<string, any>, schema: ValidationSchema): ValidationResult;
+export declare function validateSchema(data: Record<string, unknown>, schema: ValidationSchema): ValidationResult;
 //# sourceMappingURL=validation.d.ts.map

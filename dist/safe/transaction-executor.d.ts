@@ -27,6 +27,18 @@ export declare class TransactionExecutor {
      */
     private validateExecutionConfig;
     /**
+     * Setup Anvil fork if needed
+     */
+    private setupAnvilFork;
+    /**
+     * Build forge script command arguments
+     */
+    private buildForgeScriptCommand;
+    /**
+     * Handle forge process events
+     */
+    private handleForgeProcess;
+    /**
      * Process transactions from broadcast file
      */
     private processTransactionsFromBroadcast;

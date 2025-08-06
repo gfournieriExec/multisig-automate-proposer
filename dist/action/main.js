@@ -68,7 +68,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
     }
     async validateInputs() {
         try {
-            await (0, config_1.validateEnvironment)();
+            (0, config_1.validateEnvironment)();
             // Validate chain ID matches network
             const chainId = await (0, utils_1.getChainIdFromRpc)(this.inputs.rpcUrl);
             logger_1.logger.info('Validated RPC connection', { chainId });
@@ -88,7 +88,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
                 await this.listPendingTransactions();
                 break;
             default:
-                throw new errors_1.SafeTransactionError(errors_1.ErrorCode.UNKNOWN_ERROR, `Invalid action mode: ${this.inputs.actionMode}`);
+                throw new errors_1.SafeTransactionError(`Invalid action mode: ${String(this.inputs.actionMode)}`, errors_1.ErrorCode.UNKNOWN_ERROR);
         }
     }
     async proposeTransaction() {
@@ -115,7 +115,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             core.setOutput('transaction-count', transactionHashes.length.toString());
             logger_1.logger.info('Transaction proposal completed successfully', {
                 transactionCount: transactionHashes.length,
-                hashes: transactionHashes
+                hashes: transactionHashes,
             });
         }
         catch (error) {
@@ -134,7 +134,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             logger_1.logger.info('Listed pending transactions', {
                 count: pendingTxs.results?.length || 0,
                 next: pendingTxs.next,
-                previous: pendingTxs.previous
+                previous: pendingTxs.previous,
             });
         }
         catch (error) {
@@ -168,7 +168,7 @@ exports.GitHubActionRunner = GitHubActionRunner;
 if (require.main === module) {
     const runner = new GitHubActionRunner();
     runner.run().catch((error) => {
-        console.error('Unhandled error in GitHub Action:', error);
+        logger_1.logger.error('Unhandled error in GitHub Action:', error instanceof Error ? error : new Error(String(error)));
         process.exit(1);
     });
 }

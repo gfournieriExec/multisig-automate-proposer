@@ -11,9 +11,18 @@ export declare function getChainIdFromRpc(rpcUrl: string): Promise<string>;
  */
 export declare function parseEnvironmentVariables(envVars: string): Record<string, string>;
 /**
+ * Interface for transaction data
+ */
+interface TransactionData {
+    to: string;
+    value: string;
+    data?: string;
+    operation?: string;
+}
+/**
  * Format transaction data for display
  */
-export declare function formatTransactionForDisplay(tx: any, index: number, total: number): string;
+export declare function formatTransactionForDisplay(tx: TransactionData, index: number, total: number): string;
 /**
  * Format Safe transaction hash for display
  */
@@ -45,7 +54,7 @@ export declare function fileExists(filePath: string): boolean;
 /**
  * Read JSON file safely
  */
-export declare function readJsonFile<T = any>(filePath: string): T;
+export declare function readJsonFile<T = unknown>(filePath: string): T;
 /**
  * Validate hex string
  */
@@ -78,10 +87,11 @@ export declare function retryWithBackoff<T>(operation: () => Promise<T>, maxRetr
  * Console log utilities with consistent formatting
  */
 export declare const logger: {
-    info: (message: string, ...args: any[]) => void;
-    success: (message: string, ...args: any[]) => void;
-    warning: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
-    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: unknown[]) => void;
+    success: (message: string, ...args: unknown[]) => void;
+    warning: (message: string, ...args: unknown[]) => void;
+    error: (message: string, ...args: unknown[]) => void;
+    debug: (message: string, ...args: unknown[]) => void;
 };
+export {};
 //# sourceMappingURL=utils.d.ts.map

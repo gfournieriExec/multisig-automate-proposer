@@ -8,8 +8,8 @@ export interface LogEntry {
     timestamp: string;
     level: string;
     message: string;
-    metadata?: Record<string, any>;
-    error?: Record<string, any>;
+    metadata?: Record<string, unknown>;
+    error?: Record<string, unknown>;
 }
 export interface LoggerConfig {
     level: LogLevel;
@@ -37,18 +37,18 @@ export declare class Logger {
     private writeToFile;
     private writeToConsole;
     private log;
-    error(message: string, error?: Error | Record<string, any>): void;
-    warn(message: string, metadata?: Record<string, any>): void;
-    info(message: string, metadata?: Record<string, any>): void;
-    debug(message: string, metadata?: Record<string, any>): void;
-    transaction(hash: string, action: string, metadata?: Record<string, any>): void;
-    network(action: string, metadata?: Record<string, any>): void;
-    safe(action: string, metadata?: Record<string, any>): void;
-    foundry(action: string, metadata?: Record<string, any>): void;
-    performance(operation: string, duration: number, metadata?: Record<string, any>): void;
-    audit(action: string, user: string, metadata?: Record<string, any>): void;
+    error(message: string, error?: Error | Record<string, unknown>): void;
+    warn(message: string, metadata?: Record<string, unknown>): void;
+    info(message: string, metadata?: Record<string, unknown>): void;
+    debug(message: string, metadata?: Record<string, unknown>): void;
+    transaction(hash: string, action: string, metadata?: Record<string, unknown>): void;
+    network(action: string, metadata?: Record<string, unknown>): void;
+    safe(action: string, metadata?: Record<string, unknown>): void;
+    foundry(action: string, metadata?: Record<string, unknown>): void;
+    performance(operation: string, duration: number, metadata?: Record<string, unknown>): void;
+    audit(action: string, user: string, metadata?: Record<string, unknown>): void;
 }
 export declare const logger: Logger;
-export declare function createLogger(context: Record<string, any>): Logger;
+export declare function createLogger(context: Record<string, unknown>): Logger;
 export declare function measurePerformance<T>(operation: string, fn: () => Promise<T>, loggerInstance?: Logger): Promise<T>;
 //# sourceMappingURL=logger.d.ts.map

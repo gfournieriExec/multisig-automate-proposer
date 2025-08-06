@@ -36,7 +36,7 @@ function convertHexToDecimal(hexValue) {
     // Convert to decimal
     const decimal = parseInt(cleanHex, 16);
     if (isNaN(decimal)) {
-        console.warn(`Invalid hex value: ${hexValue}, using 0`);
+        process.stderr.write(`Invalid hex value: ${hexValue}, using 0\n`);
         return '0';
     }
     return decimal.toString();
@@ -46,17 +46,17 @@ function convertHexToDecimal(hexValue) {
  */
 async function getChainIdFromRpc(rpcUrl) {
     try {
-        console.log(`Fetching chain ID from RPC: ${rpcUrl}`);
+        process.stdout.write(`Fetching chain ID from RPC: ${rpcUrl}\n`);
         const provider = new ethers_1.ethers.JsonRpcProvider(rpcUrl);
         const network = await provider.getNetwork();
         const chainId = network.chainId.toString();
-        console.log(`Chain ID retrieved: ${chainId}`);
+        process.stdout.write(`Chain ID retrieved: ${chainId}\n`);
         return chainId;
     }
     catch (error) {
-        console.error('Failed to fetch chain ID from RPC:', error);
+        process.stderr.write(`Failed to fetch chain ID from RPC: ${String(error)}\n`);
         // Fallback to hardcoded mapping as a last resort
-        console.log('Falling back to hardcoded chain ID mapping...');
+        process.stdout.write('Falling back to hardcoded chain ID mapping...\n');
         const chainMappings = {
             sepolia: '11155111',
             'arbitrum-sepolia': '421614',
@@ -69,12 +69,12 @@ async function getChainIdFromRpc(rpcUrl) {
         const url = rpcUrl.toLowerCase();
         for (const [network, chainId] of Object.entries(chainMappings)) {
             if (url.includes(network)) {
-                console.log(`Using fallback chain ID: ${chainId}`);
+                process.stdout.write(`Using fallback chain ID: ${chainId}\n`);
                 return chainId;
             }
         }
         // Default to Sepolia if cannot determine
-        console.log('Using default chain ID: 11155111 (Sepolia)');
+        process.stdout.write('Using default chain ID: 11155111 (Sepolia)\n');
         return '11155111';
     }
 }
@@ -171,15 +171,16 @@ function readJsonFile(filePath) {
     if (!fs.existsSync(filePath)) {
         throw new Error(`File not found: ${filePath}`);
     }
-    const content = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(content);
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(fileContent);
 }
 /**
  * Validate hex string
  */
 function isValidHex(value) {
-    if (!value)
+    if (!value) {
         return false;
+    }
     const cleanValue = value.startsWith('0x') ? value.slice(2) : value;
     return /^[0-9a-fA-F]*$/.test(cleanValue);
 }
@@ -201,8 +202,8 @@ function toChecksumAddress(address) {
     try {
         return ethers_1.ethers.getAddress(address);
     }
-    catch (error) {
-        console.warn(`Invalid address format: ${address}`);
+    catch {
+        process.stderr.write(`Invalid address format: ${address}\n`);
         return address; // Return original if conversion fails
     }
 }
@@ -242,7 +243,7 @@ async function retryWithBackoff(operation, maxRetries = 3, baseDelay = 1000) {
                 throw error;
             }
             const delayMs = baseDelay * Math.pow(2, attempt - 1);
-            console.log(`Attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+            process.stdout.write(`Attempt ${attempt} failed, retrying in ${delayMs}ms...\n`);
             await sleep(delayMs);
         }
     }
@@ -253,20 +254,35 @@ async function retryWithBackoff(operation, maxRetries = 3, baseDelay = 1000) {
  */
 exports.logger = {
     info: (message, ...args) => {
-        console.log(`ℹ️  ${message}`, ...args);
+        process.stdout.write(`ℹ️  ${message}\n`);
+        if (args.length > 0) {
+            process.stdout.write(`${JSON.stringify(args)}\n`);
+        }
     },
     success: (message, ...args) => {
-        console.log(`✅ ${message}`, ...args);
+        process.stdout.write(`✅ ${message}\n`);
+        if (args.length > 0) {
+            process.stdout.write(`${JSON.stringify(args)}\n`);
+        }
     },
     warning: (message, ...args) => {
-        console.warn(`⚠️  ${message}`, ...args);
+        process.stderr.write(`⚠️  ${message}\n`);
+        if (args.length > 0) {
+            process.stderr.write(`${JSON.stringify(args)}\n`);
+        }
     },
     error: (message, ...args) => {
-        console.error(`❌ ${message}`, ...args);
+        process.stderr.write(`❌ ${message}\n`);
+        if (args.length > 0) {
+            process.stderr.write(`${JSON.stringify(args)}\n`);
+        }
     },
     debug: (message, ...args) => {
         if (process.env.DEBUG) {
-            console.log(`🐛 ${message}`, ...args);
+            process.stdout.write(`🐛 ${message}\n`);
+            if (args.length > 0) {
+                process.stdout.write(`${JSON.stringify(args)}\n`);
+            }
         }
     },
 };

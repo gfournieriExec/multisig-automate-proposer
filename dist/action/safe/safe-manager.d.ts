@@ -1,3 +1,4 @@
+import { AllTransactionsListResponse, SafeInfoResponse, SafeModuleTransactionListResponse, SafeMultisigTransactionListResponse, TransferListResponse } from '@safe-global/api-kit';
 import { MetaTransactionData } from '@safe-global/types-kit';
 export declare class SafeManager {
     private apiKit;
@@ -22,27 +23,27 @@ export declare class SafeManager {
     /**
      * Get a specific transaction by hash
      */
-    getTransaction(safeTxHash: string): Promise<any>;
+    getTransaction(safeTxHash: string): Promise<unknown>;
     /**
      * Get pending transactions
      */
-    getPendingTransactions(): Promise<import("@safe-global/api-kit").SafeMultisigTransactionListResponse>;
+    getPendingTransactions(): Promise<SafeMultisigTransactionListResponse>;
     /**
      * Get all transactions
      */
-    getAllTransactions(): Promise<import("@safe-global/api-kit").AllTransactionsListResponse>;
+    getAllTransactions(): Promise<AllTransactionsListResponse>;
     /**
      * Get incoming transactions
      */
-    getIncomingTransactions(): Promise<import("@safe-global/api-kit").TransferListResponse>;
+    getIncomingTransactions(): Promise<TransferListResponse>;
     /**
      * Get multisig transactions
      */
-    getMultisigTransactions(): Promise<import("@safe-global/api-kit").SafeMultisigTransactionListResponse>;
+    getMultisigTransactions(): Promise<SafeMultisigTransactionListResponse>;
     /**
      * Get module transactions
      */
-    getModuleTransactions(): Promise<import("@safe-global/api-kit").SafeModuleTransactionListResponse>;
+    getModuleTransactions(): Promise<SafeModuleTransactionListResponse>;
     /**
      * Get the current nonce for the Safe
      */
@@ -50,7 +51,7 @@ export declare class SafeManager {
     /**
      * Get Safe information including owners
      */
-    getSafeInfo(): Promise<import("@safe-global/api-kit").SafeInfoResponse>;
+    getSafeInfo(): Promise<SafeInfoResponse>;
     /**
      * Get all owners of the Safe
      */
@@ -63,6 +64,10 @@ export declare class SafeManager {
      * Propose a transaction to the Safe with explicit nonce
      */
     proposeTransactionWithNonce(transactionData: MetaTransactionData, nonce: number): Promise<string>;
+    /**
+     * Handle errors from propose transaction operations
+     */
+    private handleProposeTransactionError;
     /**
      * Propose multiple transactions with sequential nonces
      */

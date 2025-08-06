@@ -31,26 +31,26 @@ export declare class AppError extends Error {
     readonly statusCode: number;
     readonly isOperational: boolean;
     readonly timestamp: Date;
-    readonly context?: Record<string, any>;
-    constructor(message: string, code?: ErrorCode, statusCode?: number, isOperational?: boolean, context?: Record<string, any>);
+    readonly context?: Record<string, unknown>;
+    constructor(message: string, code?: ErrorCode, statusCode?: number, isOperational?: boolean, context?: Record<string, unknown>);
 }
 export declare class ConfigurationError extends AppError {
-    constructor(message: string, context?: Record<string, any>);
+    constructor(message: string, context?: Record<string, unknown>);
 }
 export declare class NetworkError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>);
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>);
 }
 export declare class SafeTransactionError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>);
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>);
 }
 export declare class FileSystemError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>);
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>);
 }
 export declare class ValidationError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>);
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>);
 }
 export declare class FoundryError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>);
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>);
 }
 /**
  * Error Handler Utility Functions
@@ -59,7 +59,7 @@ export declare class ErrorHandler {
     /**
      * Format error for logging
      */
-    static formatError(error: Error): Record<string, any>;
+    static formatError(error: Error): Record<string, unknown>;
     /**
      * Determine if error is operational (expected) or programming error
      */
