@@ -397,7 +397,7 @@ Available scripts: ${(0, utils_1.getAvailableScripts)().join(', ')}
         process.exit(1);
     }
     try {
-        (0, config_1.validateEnvironment)();
+        await (0, config_1.validateEnvironment)();
         const executor = await TransactionExecutor.create();
         await executeScriptCommand(executor, args);
     }

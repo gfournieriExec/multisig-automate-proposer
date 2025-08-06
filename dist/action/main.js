@@ -50,7 +50,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
     }
     async validateInputs() {
         try {
-            (0, config_1.validateEnvironment)();
+            await (0, config_1.validateEnvironment)();
             // Validate chain ID matches network
             const chainId = await (0, utils_1.getChainIdFromRpc)(this.inputs.rpcUrl);
             logger_1.logger.info('Validated RPC connection', { chainId });
