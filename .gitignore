@@ -17,7 +17,7 @@ broadcast/*/*/run-*.json
 
 # Node.js dependencies and build artifacts
 node_modules/
-dist/
+# Note: dist/ is NOT ignored for GitHub Actions - we commit built files
 *.tsbuildinfo
 
 .idea

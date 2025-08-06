@@ -17,7 +17,7 @@ export function convertHexToDecimal(hexValue: string): string {
     const decimal = parseInt(cleanHex, 16);
 
     if (isNaN(decimal)) {
-        console.warn(`Invalid hex value: ${hexValue}, using 0`);
+        process.stderr.write(`Invalid hex value: ${hexValue}, using 0\n`);
         return '0';
     }
 
@@ -29,19 +29,19 @@ export function convertHexToDecimal(hexValue: string): string {
  */
 export async function getChainIdFromRpc(rpcUrl: string): Promise<string> {
     try {
-        console.log(`Fetching chain ID from RPC: ${rpcUrl}`);
+        process.stdout.write(`Fetching chain ID from RPC: ${rpcUrl}\n`);
 
         const provider = new ethers.JsonRpcProvider(rpcUrl);
         const network = await provider.getNetwork();
         const chainId = network.chainId.toString();
 
-        console.log(`Chain ID retrieved: ${chainId}`);
+        process.stdout.write(`Chain ID retrieved: ${chainId}\n`);
         return chainId;
     } catch (error) {
-        console.error('Failed to fetch chain ID from RPC:', error);
+        process.stderr.write(`Failed to fetch chain ID from RPC: ${String(error)}\n`);
 
         // Fallback to hardcoded mapping as a last resort
-        console.log('Falling back to hardcoded chain ID mapping...');
+        process.stdout.write('Falling back to hardcoded chain ID mapping...\n');
         const chainMappings: Record<string, string> = {
             sepolia: '11155111',
             'arbitrum-sepolia': '421614',
@@ -55,13 +55,13 @@ export async function getChainIdFromRpc(rpcUrl: string): Promise<string> {
         const url = rpcUrl.toLowerCase();
         for (const [network, chainId] of Object.entries(chainMappings)) {
             if (url.includes(network)) {
-                console.log(`Using fallback chain ID: ${chainId}`);
+                process.stdout.write(`Using fallback chain ID: ${chainId}\n`);
                 return chainId;
             }
         }
 
         // Default to Sepolia if cannot determine
-        console.log('Using default chain ID: 11155111 (Sepolia)');
+        process.stdout.write('Using default chain ID: 11155111 (Sepolia)\n');
         return '11155111';
     }
 }
@@ -84,9 +84,23 @@ export function parseEnvironmentVariables(envVars: string): Record<string, strin
 }
 
 /**
+ * Interface for transaction data
+ */
+interface TransactionData {
+    to: string;
+    value: string;
+    data?: string;
+    operation?: string;
+}
+
+/**
  * Format transaction data for display
  */
-export function formatTransactionForDisplay(tx: any, index: number, total: number): string {
+export function formatTransactionForDisplay(
+    tx: TransactionData,
+    index: number,
+    total: number,
+): string {
     return `
 Transaction ${index + 1}/${total}:
    To: ${tx.to}
@@ -168,20 +182,22 @@ export function fileExists(filePath: string): boolean {
 /**
  * Read JSON file safely
  */
-export function readJsonFile<T = any>(filePath: string): T {
+export function readJsonFile<T = unknown>(filePath: string): T {
     if (!fs.existsSync(filePath)) {
         throw new Error(`File not found: ${filePath}`);
     }
 
-    const content = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(content);
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(fileContent) as T;
 }
 
 /**
  * Validate hex string
  */
 export function isValidHex(value: string): boolean {
-    if (!value) return false;
+    if (!value) {
+        return false;
+    }
     const cleanValue = value.startsWith('0x') ? value.slice(2) : value;
     return /^[0-9a-fA-F]*$/.test(cleanValue);
 }
@@ -194,6 +210,18 @@ export function isValidAddress(address: string): boolean {
         return ethers.isAddress(address);
     } catch {
         return false;
+    }
+}
+
+/**
+ * Convert address to checksum format
+ */
+export function toChecksumAddress(address: string): string {
+    try {
+        return ethers.getAddress(address);
+    } catch {
+        process.stderr.write(`Invalid address format: ${address}\n`);
+        return address; // Return original if conversion fails
     }
 }
 
@@ -239,7 +267,7 @@ export async function retryWithBackoff<T>(
             }
 
             const delayMs = baseDelay * Math.pow(2, attempt - 1);
-            console.log(`Attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+            process.stdout.write(`Attempt ${attempt} failed, retrying in ${delayMs}ms...\n`);
             await sleep(delayMs);
         }
     }
@@ -251,21 +279,36 @@ export async function retryWithBackoff<T>(
  * Console log utilities with consistent formatting
  */
 export const logger = {
-    info: (message: string, ...args: any[]) => {
-        console.log(`ℹ️  ${message}`, ...args);
+    info: (message: string, ...args: unknown[]): void => {
+        process.stdout.write(`ℹ️  ${message}\n`);
+        if (args.length > 0) {
+            process.stdout.write(`${JSON.stringify(args)}\n`);
+        }
     },
-    success: (message: string, ...args: any[]) => {
-        console.log(`✅ ${message}`, ...args);
+    success: (message: string, ...args: unknown[]): void => {
+        process.stdout.write(`✅ ${message}\n`);
+        if (args.length > 0) {
+            process.stdout.write(`${JSON.stringify(args)}\n`);
+        }
     },
-    warning: (message: string, ...args: any[]) => {
-        console.warn(`⚠️  ${message}`, ...args);
+    warning: (message: string, ...args: unknown[]): void => {
+        process.stderr.write(`⚠️  ${message}\n`);
+        if (args.length > 0) {
+            process.stderr.write(`${JSON.stringify(args)}\n`);
+        }
     },
-    error: (message: string, ...args: any[]) => {
-        console.error(`❌ ${message}`, ...args);
+    error: (message: string, ...args: unknown[]): void => {
+        process.stderr.write(`❌ ${message}\n`);
+        if (args.length > 0) {
+            process.stderr.write(`${JSON.stringify(args)}\n`);
+        }
     },
-    debug: (message: string, ...args: any[]) => {
+    debug: (message: string, ...args: unknown[]): void => {
         if (process.env.DEBUG) {
-            console.log(`🐛 ${message}`, ...args);
+            process.stdout.write(`🐛 ${message}\n`);
+            if (args.length > 0) {
+                process.stdout.write(`${JSON.stringify(args)}\n`);
+            }
         }
     },
 };

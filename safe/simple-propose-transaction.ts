@@ -1,43 +1,40 @@
 #!/usr/bin/env ts-node
 
-import { SafeManager } from './safe-manager';
 import { validateEnvironment } from './config';
+import { SafeManager } from './safe-manager';
 
 interface ProposeTransactionArgs {
-  to: string;
-  value?: string;
-  data?: string;
-  operation?: 'call' | 'delegatecall';
-  debug?: boolean;
+    to: string;
+    value?: string;
+    data?: string;
+    operation?: 'call' | 'delegatecall';
+    debug?: boolean;
 }
 
 // Validation functions
 function isValidAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
 function isValidHexData(data: string): boolean {
-  return /^0x[a-fA-F0-9]*$/.test(data);
+    return /^0x[a-fA-F0-9]*$/.test(data);
 }
 
 function isValidValue(value: string): boolean {
-  try {
-    const num = BigInt(value);
-    return num >= 0n;
-  } catch {
-    return false;
-  }
+    try {
+        const num = BigInt(value);
+        return num >= 0n;
+    } catch {
+        return false;
+    }
 }
 
 function isValidOperation(operation: string): operation is 'call' | 'delegatecall' {
-  return operation === 'call' || operation === 'delegatecall';
+    return operation === 'call' || operation === 'delegatecall';
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  
-  if (args.length === 0) {
-    console.log(`
+function showUsageAndExit(): void {
+    process.stdout.write(`
 Usage: npm run propose-tx -- --to <address> [options]
 
 Options:
@@ -54,140 +51,186 @@ Examples:
   npm run propose-tx -- --to 0x1234...5678 --debug
     `);
     process.exit(1);
-  }
+}
 
-  const parsedArgs: ProposeTransactionArgs = { to: '', debug: false };
-  for (let i = 0; i < args.length; i++) {
-    const key = args[i];
-    
-    if (key === '--debug') {
-      parsedArgs.debug = true;
-      continue;
+function parseCommandLineArgs(): ProposeTransactionArgs {
+    const args = process.argv.slice(2);
+
+    if (args.length === 0) {
+        showUsageAndExit();
     }
-    
-    const value = args[i + 1];
-    
-    if (!value || value.startsWith('--')) {
-      console.error(`Error: ${key} requires a value`);
-      process.exit(1);
+
+    const parsedArgs: ProposeTransactionArgs = { to: '', debug: false };
+
+    for (let i = 0; i < args.length; i++) {
+        const key = args[i];
+
+        if (key === '--debug') {
+            parsedArgs.debug = true;
+            continue;
+        }
+
+        const value = args[i + 1];
+
+        if (!value || value.startsWith('--')) {
+            process.stderr.write(`Error: ${key} requires a value\n`);
+            process.exit(1);
+        }
+
+        i++; // Skip the value on next iteration
+        processArgument(key, value, parsedArgs);
     }
-    
-    switch (key) {
-      case '--to':
-        if (!isValidAddress(value)) {
-          console.error(`Error: Invalid address format: ${value}`);
-          console.error('Address must be a valid Ethereum address (0x followed by 40 hex characters)');
-          process.exit(1);
-        }
-        parsedArgs.to = value;
-        i++; // Skip the value on next iteration
-        break;
-      case '--value':
-        if (!isValidValue(value)) {
-          console.error(`Error: Invalid value: ${value}`);
-          console.error('Value must be a non-negative integer in wei');
-          process.exit(1);
-        }
-        parsedArgs.value = value;
-        i++; // Skip the value on next iteration
-        break;
-      case '--data':
-        if (!isValidHexData(value)) {
-          console.error(`Error: Invalid data format: ${value}`);
-          console.error('Data must be valid hex data starting with 0x');
-          process.exit(1);
-        }
-        parsedArgs.data = value;
-        i++; // Skip the value on next iteration
-        break;
-      case '--operation':
-        if (!isValidOperation(value)) {
-          console.error(`Error: Invalid operation: ${value}`);
-          console.error('Operation must be either "call" or "delegatecall"');
-          process.exit(1);
-        }
-        parsedArgs.operation = value;
-        i++; // Skip the value on next iteration
-        break;
-      default:
-        console.error(`Unknown argument: ${key}`);
+
+    if (!parsedArgs.to) {
+        process.stderr.write('Error: --to argument is required\n');
         process.exit(1);
     }
-  }
 
-  if (!parsedArgs.to) {
-    console.error('Error: --to argument is required');
-    process.exit(1);
-  }
+    return parsedArgs;
+}
 
-  try {
-    if (parsedArgs.debug) {
-      console.log('🐛 Debug mode enabled');
-      console.log('📋 Parsed arguments:', parsedArgs);
-      console.log('🌍 Environment variables:');
-      console.log(`  - RPC_URL: ${process.env.RPC_URL}`);
-      console.log(`  - CHAIN_ID: ${process.env.CHAIN_ID}`);
-      console.log(`  - SAFE_ADDRESS: ${process.env.SAFE_ADDRESS}`);
-      console.log(`  - PROPOSER_1_ADDRESS: ${process.env.PROPOSER_1_ADDRESS}`);
-      console.log('');
+function processArgument(key: string, value: string, parsedArgs: ProposeTransactionArgs): void {
+    switch (key) {
+        case '--to':
+            validateAddress(value);
+            parsedArgs.to = value;
+            break;
+        case '--value':
+            validateValue(value);
+            parsedArgs.value = value;
+            break;
+        case '--data':
+            validateData(value);
+            parsedArgs.data = value;
+            break;
+        case '--operation':
+            validateOperation(value);
+            parsedArgs.operation = value;
+            break;
+        default:
+            process.stderr.write(`Unknown argument: ${key}\n`);
+            process.exit(1);
     }
-    
-    console.log('🔍 Validating environment...');
-    validateEnvironment();
-    console.log('✅ Environment validation successful');
-    
-    console.log('🔧 Initializing Safe manager...');
-    const safeManager = new SafeManager();
-    
-    const transactionData = parsedArgs.operation === 'delegatecall'
-      ? safeManager.createDelegateCallTransaction(
-          parsedArgs.to,
-          parsedArgs.data || '0x'
-        )
-      : safeManager.createContractCallTransaction(
-          parsedArgs.to,
-          parsedArgs.data || '0x',
-          parsedArgs.value || '0'
+}
+function validateAddress(value: string): void {
+    if (!isValidAddress(value)) {
+        process.stderr.write(`Error: Invalid address format: ${value}\n`);
+        process.stderr.write(
+            'Address must be a valid Ethereum address (0x followed by 40 hex characters)\n',
         );
-
-    console.log('📝 Proposing transaction with the following data:');
-    console.log(JSON.stringify(transactionData, null, 2));
-    console.log('');
-
-    console.log('🚀 Submitting transaction to Safe...');
-    const safeTxHash = await safeManager.proposeTransaction(transactionData);
-    
-    console.log('✅ Transaction proposed successfully!');
-    console.log(`🔗 Safe Transaction Hash: ${safeTxHash}`);
-    console.log('');
-    console.log('📋 Next steps:');
-    console.log(`1. Review the transaction in the Safe web interface`);
-    console.log(`2. Collect additional signatures from other owners using the Safe UI`);
-    console.log(`3. Execute the transaction once threshold is reached through the Safe UI`);
-
-  } catch (error) {
-    console.error('❌ Error proposing transaction:', error);
-    
-    if (parsedArgs.debug) {
-      console.error('\n🐛 Debug information:');
-      console.error('Stack trace:', error);
+        process.exit(1);
     }
-    
+}
+
+function validateValue(value: string): void {
+    if (!isValidValue(value)) {
+        process.stderr.write(`Error: Invalid value: ${value}\n`);
+        process.stderr.write('Value must be a non-negative integer in wei\n');
+        process.exit(1);
+    }
+}
+
+function validateData(value: string): void {
+    if (!isValidHexData(value)) {
+        process.stderr.write(`Error: Invalid data format: ${value}\n`);
+        process.stderr.write('Data must be valid hex data starting with 0x\n');
+        process.exit(1);
+    }
+}
+
+function validateOperation(value: string): asserts value is 'call' | 'delegatecall' {
+    if (!isValidOperation(value)) {
+        process.stderr.write(`Error: Invalid operation: ${value}\n`);
+        process.stderr.write('Operation must be either "call" or "delegatecall"\n');
+        process.exit(1);
+    }
+}
+
+function printDebugInfo(parsedArgs: ProposeTransactionArgs): void {
+    if (!parsedArgs.debug) {
+        return;
+    }
+
+    process.stdout.write('🐛 Debug mode enabled\n');
+    process.stdout.write(`📋 Parsed arguments: ${JSON.stringify(parsedArgs)}\n`);
+    process.stdout.write('🌍 Environment variables:\n');
+    process.stdout.write(`  - RPC_URL: ${process.env.RPC_URL}\n`);
+    process.stdout.write(`  - CHAIN_ID: ${process.env.CHAIN_ID}\n`);
+    process.stdout.write(`  - SAFE_ADDRESS: ${process.env.SAFE_ADDRESS}\n`);
+    process.stdout.write(`  - PROPOSER_1_ADDRESS: ${process.env.PROPOSER_1_ADDRESS}\n`);
+    process.stdout.write('\n');
+}
+
+function handleError(error: unknown, debug: boolean): void {
+    process.stderr.write(`❌ Error proposing transaction: ${String(error)}\n`);
+
+    if (debug) {
+        process.stderr.write('\n🐛 Debug information:\n');
+        process.stderr.write(`Stack trace: ${String(error)}\n`);
+    }
+
     // Provide more helpful error messages
     if (error instanceof Error) {
-      if (error.message.includes('invalid address')) {
-        console.error('\n💡 Tip: Make sure the address is a valid Ethereum address');
-      } else if (error.message.includes('network')) {
-        console.error('\n💡 Tip: Check your network connection and RPC_URL');
-      } else if (error.message.includes('SAFE_ADDRESS') || error.message.includes('PROPOSER')) {
-        console.error('\n💡 Tip: Check your .env.safe file configuration');
-      }
+        if (error.message.includes('invalid address')) {
+            process.stderr.write('\n💡 Tip: Make sure the address is a valid Ethereum address\n');
+        } else if (error.message.includes('network')) {
+            process.stderr.write('\n💡 Tip: Check your network connection and RPC_URL\n');
+        } else if (error.message.includes('SAFE_ADDRESS') || error.message.includes('PROPOSER')) {
+            process.stderr.write('\n� Tip: Check your .env.safe file configuration\n');
+        }
     }
-    
+
     process.exit(1);
-  }
+}
+
+async function main(): Promise<void> {
+    const parsedArgs = parseCommandLineArgs();
+
+    try {
+        printDebugInfo(parsedArgs);
+
+        process.stdout.write('�🔍 Validating environment...\n');
+        validateEnvironment();
+        process.stdout.write('✅ Environment validation successful\n');
+
+        process.stdout.write('🔧 Initializing Safe manager...\n');
+        const safeManager = new SafeManager();
+
+        const transactionData =
+            parsedArgs.operation === 'delegatecall'
+                ? safeManager.createDelegateCallTransaction(parsedArgs.to, parsedArgs.data || '0x')
+                : safeManager.createContractCallTransaction(
+                      parsedArgs.to,
+                      parsedArgs.data || '0x',
+                      parsedArgs.value || '0',
+                  );
+
+        process.stdout.write('📝 Proposing transaction with the following data:\n');
+        process.stdout.write(`${JSON.stringify(transactionData, null, 2)}\n`);
+        process.stdout.write('\n');
+
+        process.stdout.write('🚀 Submitting transaction to Safe...\n');
+        const safeTxHash = await safeManager.proposeTransaction(transactionData);
+
+        process.stdout.write('✅ Transaction proposed successfully!\n');
+        process.stdout.write(`🔗 Safe Transaction Hash: ${safeTxHash}\n`);
+        process.stdout.write('\n');
+        process.stdout.write('📋 Next steps:\n');
+        process.stdout.write('1. Review the transaction in the Safe web interface\n');
+        process.stdout.write(
+            '2. Collect additional signatures from other owners using the Safe UI\n',
+        );
+        process.stdout.write(
+            '3. Execute the transaction once threshold is reached through the Safe UI\n',
+        );
+    } catch (error) {
+        handleError(error, parsedArgs.debug || false);
+    }
 }
 
 if (require.main === module) {
-  main();
+    main().catch((error) => {
+        process.stderr.write(`Fatal error: ${error}\n`);
+        process.exit(1);
+    });
 }

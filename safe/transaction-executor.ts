@@ -3,6 +3,8 @@
 import { spawn } from 'child_process';
 import { AnvilConfig, AnvilManager } from './anvil-manager';
 import { validateEnvironment } from './config';
+import { ErrorCode, SafeTransactionError } from './errors';
+import { logger, measurePerformance } from './logger';
 import { SafeManager } from './safe-manager';
 import {
     convertHexToDecimal,
@@ -12,7 +14,9 @@ import {
     parseEnvironmentVariables,
     readJsonFile,
     sleep,
+    toChecksumAddress,
 } from './utils';
+import { Validator } from './validation';
 
 interface BroadcastTransaction {
     hash: string;
@@ -20,7 +24,7 @@ interface BroadcastTransaction {
     contractName: string | null;
     contractAddress: string;
     function: string;
-    arguments: any[];
+    arguments: unknown[];
     transaction: {
         from: string;
         to: string;
@@ -30,16 +34,16 @@ interface BroadcastTransaction {
         nonce: string;
         chainId: string;
     };
-    additionalContracts: any[];
+    additionalContracts: unknown[];
     isFixedGasLimit: boolean;
 }
 
 interface BroadcastFile {
     transactions: BroadcastTransaction[];
-    receipts: any[];
-    libraries: any[];
-    pending: any[];
-    returns: any;
+    receipts: unknown[];
+    libraries: unknown[];
+    pending: unknown[];
+    returns: unknown;
     timestamp: number;
     chain: number;
     multi: boolean;
@@ -75,68 +79,277 @@ export class TransactionExecutor {
      * Execute transactions from Foundry script with automatic broadcast generation
      */
     async executeFromScript(config: ExecutionConfig): Promise<string[]> {
-        if (config.forgeScript) {
-            console.log(`Executing forge script directly: ${config.forgeScript}`);
-        } else if (config.envVars) {
-            console.log(`Executing forge script with environment variables: ${config.envVars}`);
-        } else if (config.smartContract) {
-            console.log(`Executing forge script for smart contract: ${config.smartContract}`);
-        } else {
-            throw new Error(
+        logger.info('Starting script execution', {
+            forgeScript: config.forgeScript,
+            smartContract: config.smartContract,
+            hasEnvVars: !!config.envVars,
+            dryRun: config.dryRun,
+        });
+
+        // Validate execution configuration
+        this.validateExecutionConfig(config);
+
+        return await measurePerformance('executeFromScript', async () => {
+            try {
+                console.log('=== Starting Foundry Script Execution ===');
+                console.log('Configuration:', {
+                    forgeScript: config.forgeScript,
+                    smartContract: config.smartContract,
+                    rpcUrl: config.rpcUrl?.substring(0, 50) + '...',
+                    forgeOptions: config.forgeOptions,
+                    envVars: config.envVars ? 'Present' : 'None',
+                });
+
+                const chainId = await this.runFoundryScript(config);
+                logger.info('Foundry script completed successfully', { chainId });
+                console.log('=== Foundry Script Completed Successfully ===');
+
+                // Execute transactions from broadcast file
+                return await this.processTransactionsFromBroadcast(config, chainId);
+            } catch (error) {
+                logger.error(
+                    'Foundry script execution failed, attempting fallback',
+                    error as Error,
+                );
+                console.log('=== Foundry Script Failed, Attempting Fallback ===');
+                console.error('Error details:', error);
+
+                // Fallback: try to execute from existing broadcast file
+                return await this.fallbackToBroadcastFile(config);
+            }
+        });
+    }
+
+    /**
+     * Validate execution configuration
+     */
+    private validateExecutionConfig(config: ExecutionConfig): void {
+        if (!config.forgeScript && !config.envVars && !config.smartContract) {
+            throw new SafeTransactionError(
                 'Either forgeScript, envVars, or smartContract configuration is required',
+                ErrorCode.INVALID_CONFIGURATION,
+                { config },
             );
         }
 
+        if (config.rpcUrl) {
+            Validator.validateRpcUrl(config.rpcUrl);
+        }
+    }
+
+    /**
+     * Setup Anvil fork if needed
+     */
+    private async setupAnvilFork(config: ExecutionConfig): Promise<AnvilConfig | undefined> {
+        if (!AnvilManager.shouldStartFork(config.rpcUrl, false)) {
+            return undefined;
+        }
+
+        console.log('Checking Anvil availability...');
+        const anvilAvailable = await this.anvilManager.checkAvailability();
+
+        if (!anvilAvailable) {
+            console.warn(
+                'Warning: Anvil is not available. Please install Foundry to use fork functionality.',
+            );
+            console.log('Continuing without fork.');
+            return undefined;
+        }
+
+        // Extract sender addresses from forge options to unlock them
+        const sendersToUnlock = AnvilManager.extractSenderFromForgeOptions(config.forgeOptions);
+
+        const anvilConfig: AnvilConfig = {
+            forkUrl: config.rpcUrl,
+            port: undefined,
+            host: undefined,
+            unlockAccounts: sendersToUnlock,
+        };
+
+        await this.anvilManager.startFork(anvilConfig);
+        // Wait for Anvil to start and accounts to be funded
+        await sleep(5000);
+
+        return anvilConfig;
+    }
+
+    /**
+     * Build forge script command arguments
+     */
+    private buildForgeScriptCommand(
+        config: ExecutionConfig,
+        forgeRpcUrl: string,
+    ): {
+        command: string;
+        args: string[];
+        contractName: string;
+        scriptPath: string;
+        forgeScript: string;
+    } {
+        const command = 'forge';
+
+        // Build forge script command
+        const scriptPath =
+            config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+
+        // Extract contract name from script path if smartContract is not provided
+        let contractName = config.smartContract;
+        if (!contractName) {
+            // Extract filename without extension and remove .s suffix
+            const filename = scriptPath.split('/').pop() || '';
+            contractName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
+        }
+
+        const forgeScript = `${scriptPath}:${contractName}`;
+        const args: string[] = [
+            'script',
+            forgeScript,
+            '--rpc-url',
+            forgeRpcUrl,
+            '--broadcast',
+            '-vvv',
+        ];
+
+        // Add forge options if provided
+        if (config.forgeOptions) {
+            const options = config.forgeOptions.trim().split(/\s+/);
+            args.push(...options);
+        }
+
+        return { command, args, contractName, scriptPath, forgeScript };
+    }
+
+    /**
+     * Handle forge process events
+     */
+    private handleForgeProcess(
+        childProcess: import('child_process').ChildProcess,
+        config: ExecutionConfig,
+        resolve: (value: string) => void,
+        reject: (reason?: Error) => void,
+    ): void {
+        childProcess.on('close', (code: number) => {
+            console.log(`Forge process completed with exit code: ${code}`);
+
+            // Clean up Anvil process
+            this.anvilManager.stop();
+
+            if (code === 0) {
+                console.log('Forge script executed successfully, fetching chain ID...');
+                getChainIdFromRpc(config.rpcUrl)
+                    .then((chainId) => {
+                        console.log('Chain ID obtained:', chainId);
+                        resolve(chainId);
+                    })
+                    .catch((error) => {
+                        console.error('Error getting chain ID:', error);
+                        reject(new Error(`Error getting chain ID: ${String(error)}`));
+                    });
+            } else {
+                const errorMsg = `Forge process exited with code ${code}`;
+                console.error(errorMsg);
+                reject(new Error(errorMsg));
+            }
+        });
+
+        childProcess.on('error', (error: Error) => {
+            console.error('Forge process error:', error);
+            // Clean up Anvil process on error
+            this.anvilManager.stopOnError();
+            reject(error);
+        });
+    }
+
+    /**
+     * Process transactions from broadcast file
+     */
+    private async processTransactionsFromBroadcast(
+        config: ExecutionConfig,
+        chainId: string,
+    ): Promise<string[]> {
+        logger.info('Processing transactions from broadcast file...');
+
+        // Extract contract name from script path for consistent naming
+        let defaultScriptName = 'IexecLayerZeroBridge';
+        if (!config.scriptName) {
+            const scriptPath =
+                config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol';
+            const filename = scriptPath.split('/').pop() || '';
+            defaultScriptName = filename.replace(/\.s\.sol$/, '').replace(/\.sol$/, '');
+        }
+
+        const scriptName = config.scriptName || defaultScriptName;
+        console.log('Using script name for broadcast file:', scriptName);
+
+        const transactions = this.readBroadcastFile(scriptName, chainId);
+
+        if (transactions.length === 0) {
+            logger.warn('No transactions found in broadcast file', { scriptName, chainId });
+            return [];
+        }
+
+        logger.info(`Found ${transactions.length} transactions in broadcast file`, {
+            scriptName,
+            chainId,
+            transactionCount: transactions.length,
+        });
+
+        // Validate and convert broadcast transactions to transaction inputs
+        // Get one of the Safe owners to use as the 'from' address
+        const safeOwners = await this.safeManager.getSafeOwners();
+        if (safeOwners.length === 0) {
+            throw new SafeTransactionError(
+                'No owners found for the Safe',
+                ErrorCode.INVALID_CONFIGURATION,
+                { safeAddress: this.safeManager.getSafeAddress() },
+            );
+        }
+
+        // Use the first owner as the 'from' address
+        const fromAddress = safeOwners[0];
+        console.log(`Using Safe owner as from address: ${fromAddress}`);
+
+        const transactionInputs = transactions.map((tx, index) => {
+            try {
+                const txInput = {
+                    to: toChecksumAddress(tx.transaction.to),
+                    from: fromAddress, // Use one of the Safe owners
+                    value: convertHexToDecimal(tx.transaction.value),
+                    data: tx.transaction.input,
+                    operation: 'call' as const,
+                };
+
+                // Validate transaction data
+                Validator.validateTransactionData(txInput);
+                return txInput;
+            } catch (error) {
+                throw new SafeTransactionError(
+                    `Invalid transaction data at index ${index}`,
+                    ErrorCode.INVALID_TRANSACTION_DATA,
+                    { index, transaction: tx, error: error },
+                );
+            }
+        });
+
+        return await this.executeTransactions(transactionInputs, config.dryRun);
+    }
+
+    /**
+     * Fallback to existing broadcast file
+     */
+    private async fallbackToBroadcastFile(config: ExecutionConfig): Promise<string[]> {
+        logger.info('Attempting fallback to existing broadcast file...');
+
         try {
-            const chainId = await this.runFoundryScript(config);
-
-            // Execute transactions from broadcast file
-            console.log('Executing transactions from broadcast file...');
-            const scriptName = config.scriptName || 'IexecLayerZeroBridge';
-            const transactions = await this.readBroadcastFile(scriptName, chainId);
-
-            if (transactions.length === 0) {
-                console.log('No transactions found in broadcast file');
-                return [];
-            }
-
-            console.log(`Found ${transactions.length} transactions`);
-
-            // Convert broadcast transactions to transaction inputs
-            const transactionInputs = transactions.map((tx) => ({
-                to: tx.transaction.to,
-                value: convertHexToDecimal(tx.transaction.value),
-                data: tx.transaction.input,
-                operation: 'call' as const,
-            }));
-
-            return await this.executeTransactions(transactionInputs, config.dryRun);
-        } catch (error) {
-            console.error('Failed to run Foundry script:', error);
-            console.log('Attempting to use existing broadcast file...');
-
-            // Fallback: try to execute from existing broadcast file
-            console.log('Executing transactions from broadcast file...');
             const chainId = await getChainIdFromRpc(config.rpcUrl);
-            const scriptName = config.scriptName || 'IexecLayerZeroBridge';
-            const transactions = await this.readBroadcastFile(scriptName, chainId);
-
-            if (transactions.length === 0) {
-                console.log('No transactions found in broadcast file');
-                return [];
-            }
-
-            console.log(`Found ${transactions.length} transactions`);
-
-            // Convert broadcast transactions to transaction inputs
-            const transactionInputs = transactions.map((tx) => ({
-                to: tx.transaction.to,
-                value: convertHexToDecimal(tx.transaction.value),
-                data: tx.transaction.input,
-                operation: 'call' as const,
-            }));
-
-            return await this.executeTransactions(transactionInputs, config.dryRun);
+            return await this.processTransactionsFromBroadcast(config, chainId);
+        } catch (error) {
+            logger.error('Fallback to broadcast file failed', error as Error);
+            throw new SafeTransactionError(
+                'Both Foundry script execution and broadcast file fallback failed',
+                ErrorCode.SAFE_TRANSACTION_FAILED,
+                { originalError: error },
+            );
         }
     }
 
@@ -233,33 +446,10 @@ export class TransactionExecutor {
 
         try {
             // Start Anvil fork if needed
-            if (AnvilManager.shouldStartFork(config.rpcUrl, false)) {
-                console.log('Checking Anvil availability...');
-                const anvilAvailable = await this.anvilManager.checkAvailability();
-
-                if (!anvilAvailable) {
-                    console.warn(
-                        'Warning: Anvil is not available. Please install Foundry to use fork functionality.',
-                    );
-                    console.log('Continuing without fork.');
-                } else {
-                    anvilConfig = {
-                        forkUrl: config.rpcUrl,
-                        port: undefined,
-                        host: undefined,
-                    };
-
-                    await this.anvilManager.startFork(anvilConfig);
-
-                    // Wait a bit for Anvil to start
-                    await sleep(3000);
-                }
-            }
+            anvilConfig = await this.setupAnvilFork(config);
 
             return new Promise((resolve, reject) => {
-                let command: string = 'forge';
-                let args: string[];
-                let env = { ...process.env };
+                const env = { ...process.env };
 
                 // Determine the RPC URL to use for forge script
                 const forgeRpcUrl = AnvilManager.getForgeRpcUrl(
@@ -269,14 +459,8 @@ export class TransactionExecutor {
                 );
 
                 // Build forge script command
-                const forgeScript = `${config.forgeScript || 'script/bridges/layerZero/IexecLayerZeroBridge.s.sol'}:${config.smartContract || 'Configure'}`;
-                args = ['script', forgeScript, '--rpc-url', forgeRpcUrl, '--broadcast', '-vvv'];
-
-                // Add forge options if provided
-                if (config.forgeOptions) {
-                    const options = config.forgeOptions.trim().split(/\s+/);
-                    args.push(...options);
-                }
+                const { command, args, contractName, scriptPath, forgeScript } =
+                    this.buildForgeScriptCommand(config, forgeRpcUrl);
 
                 // Set environment variables for the forge script
                 if (config.envVars) {
@@ -285,6 +469,10 @@ export class TransactionExecutor {
                 }
 
                 console.log(`Running command: ${command} ${args.join(' ')}`);
+                console.log('Script path:', scriptPath);
+                console.log('Contract name:', contractName);
+                console.log('Forge script:', forgeScript);
+                console.log('Forge options:', config.forgeOptions);
 
                 const childProcess = spawn(command, args, {
                     cwd: process.cwd(),
@@ -292,27 +480,7 @@ export class TransactionExecutor {
                     env,
                 });
 
-                childProcess.on('close', async (code) => {
-                    // Clean up Anvil process
-                    this.anvilManager.stop();
-
-                    if (code === 0) {
-                        try {
-                            const chainId = await getChainIdFromRpc(config.rpcUrl);
-                            resolve(chainId);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    } else {
-                        reject(new Error(`${command} process exited with code ${code}`));
-                    }
-                });
-
-                childProcess.on('error', (error) => {
-                    // Clean up Anvil process on error
-                    this.anvilManager.stopOnError();
-                    reject(error);
-                });
+                this.handleForgeProcess(childProcess, config, resolve, reject);
             });
         } catch (error) {
             // Clean up Anvil process if fork startup failed
@@ -324,13 +492,30 @@ export class TransactionExecutor {
     /**
      * Read the broadcast file and extract transactions
      */
-    private async readBroadcastFile(
-        scriptName: string,
-        chainId: string,
-    ): Promise<BroadcastTransaction[]> {
+    private readBroadcastFile(scriptName: string, chainId: string): BroadcastTransaction[] {
         const broadcastPath = getBroadcastFilePath(scriptName, chainId);
-        const broadcastData: BroadcastFile = readJsonFile(broadcastPath);
-        return broadcastData.transactions.filter((tx) => tx.transactionType === 'CALL');
+        console.log('Reading broadcast file from:', broadcastPath);
+
+        try {
+            const broadcastData: BroadcastFile = readJsonFile(broadcastPath);
+            console.log('Broadcast file loaded successfully');
+            console.log('Total transactions in file:', broadcastData.transactions.length);
+
+            // Filter for CALL transactions only (deployments and other types should be excluded)
+            const callTransactions = broadcastData.transactions.filter(
+                (tx) => tx.transactionType === 'CALL',
+            );
+            console.log('CALL transactions found:', callTransactions.length);
+
+            return callTransactions;
+        } catch (error) {
+            console.error('Error reading broadcast file:', error);
+            throw new SafeTransactionError(
+                `Failed to read broadcast file: ${broadcastPath}`,
+                ErrorCode.SAFE_TRANSACTION_FAILED,
+                { scriptName, chainId, error },
+            );
+        }
     }
 
     /**
@@ -356,7 +541,7 @@ export class TransactionExecutor {
 }
 
 // CLI functionality
-async function main() {
+async function main(): Promise<void> {
     const args = process.argv.slice(2);
 
     if (args.length === 0) {
@@ -395,8 +580,11 @@ Available scripts: ${getAvailableScripts().join(', ')}
     }
 }
 
-async function executeScriptCommand(executor: TransactionExecutor, args: string[]) {
-    const config: any = { dryRun: false, rpcUrl: 'http://localhost:8545' };
+/**
+ * Parse command line arguments
+ */
+function parseExecutionArgs(args: string[]): ExecutionConfig {
+    const config: ExecutionConfig = { dryRun: false, rpcUrl: 'http://localhost:8545' };
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -431,6 +619,13 @@ async function executeScriptCommand(executor: TransactionExecutor, args: string[
         }
     }
 
+    return config;
+}
+
+/**
+ * Validate execution configuration
+ */
+function validateExecutionArgs(config: ExecutionConfig): void {
     // Check if we have the required configuration
     let hasValidConfig = false;
 
@@ -453,10 +648,14 @@ async function executeScriptCommand(executor: TransactionExecutor, args: string[
         console.error('Error: Either --forge-script, --smart-contract, or --env-vars is required');
         process.exit(1);
     }
+}
 
+async function executeScriptCommand(executor: TransactionExecutor, args: string[]): Promise<void> {
+    const config = parseExecutionArgs(args);
+    validateExecutionArgs(config);
     await executor.executeFromScript(config);
 }
 
 if (require.main === module) {
-    main();
+    main().catch(console.error);
 }

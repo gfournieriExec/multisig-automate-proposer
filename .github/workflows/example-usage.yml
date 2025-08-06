@@ -1,0 +1,122 @@
+name: Example Usage - Deploy and Propose
+
+# This is an example of how other repositories can use this action
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Target network'
+        required: true
+        default: 'sepolia'
+        type: choice
+        options:
+        - mainnet
+        - sepolia
+        - goerli
+        - polygon
+      script_path:
+        description: 'Foundry script path'
+        required: true
+        default: 'script/Deploy.s.sol'
+      description:
+        description: 'Transaction description'
+        required: false
+        default: 'Deploy new contract version'
+
+jobs:
+  deploy-and-propose:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Use the Safe Proposer action
+      - name: Propose Safe Transaction
+        id: propose
+        uses: gfournieriExec/multisig-automate-proposer@main
+        with:
+          safe-address: ${{ vars.SAFE_ADDRESS }}
+          safe-network: ${{ inputs.network }}
+          rpc-url: ${{ secrets.RPC_URL }}
+          proposer-address: ${{ secrets.PROPOSER_ADDRESS }}
+          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+          safe-api-key: ${{ secrets.SAFE_API_KEY }}
+          foundry-script-path: ${{ inputs.script_path }}
+          action-mode: 'propose'
+          transaction-description: ${{ inputs.description }}
+          environment: 'production'
+      
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = {
+              status: '${{ steps.propose.outputs.status }}',
+              transactionHash: '${{ steps.propose.outputs.transaction-hash }}',
+              transactionCount: '${{ steps.propose.outputs.transaction-count }}'
+            };
+            
+            const comment = `## 🛡️ Safe Transaction Proposal Results
+            
+            **Status**: ${output.status === 'success' ? '✅ Success' : '❌ Failed'}
+            **Transaction Hash**: \`${output.transactionHash || 'N/A'}\`
+            **Transactions Processed**: ${output.transactionCount || '0'}
+            
+            ${output.status === 'success' ? 
+              '🎉 Transaction has been successfully proposed to the Safe multisig!' : 
+              '💥 Transaction proposal failed. Check the action logs for details.'
+            }`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Safe Transaction Proposal Failed - ${new Date().toISOString()}`,
+              body: `## Failed Transaction Proposal
+              
+              **Workflow**: ${context.workflow}
+              **Run ID**: ${context.runId}
+              **Script**: ${{ inputs.script_path }}
+              **Network**: ${{ inputs.network }}
+              
+              Please check the [workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId}) for detailed error information.`,
+              labels: ['bug', 'safe-transaction', 'automation']
+            });
+
+  list-pending:
+    runs-on: ubuntu-latest
+    needs: deploy-and-propose
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: List Pending Transactions
+        id: list
+        uses: gfournieriExec/multisig-automate-proposer@main
+        with:
+          safe-address: ${{ vars.SAFE_ADDRESS }}
+          safe-network: ${{ inputs.network }}
+          rpc-url: ${{ secrets.RPC_URL }}
+          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+          foundry-script-path: 'dummy'  # Not used for list-pending
+          action-mode: 'list-pending'
+      
+      - name: Output pending transactions
+        run: |
+          echo "Pending transactions:"
+          echo '${{ steps.list.outputs.pending-transactions }}' | jq '.'

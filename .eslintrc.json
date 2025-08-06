@@ -1,0 +1,74 @@
+{
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2020,
+        "sourceType": "module",
+        "project": "./tsconfig.json"
+    },
+    "plugins": ["@typescript-eslint", "prettier"],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-type-checked",
+        "prettier"
+    ],
+    "rules": {
+        // TypeScript specific rules
+        "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+        "@typescript-eslint/explicit-function-return-type": "warn",
+        "@typescript-eslint/no-explicit-any": "warn",
+        "@typescript-eslint/no-non-null-assertion": "warn",
+        "@typescript-eslint/no-floating-promises": "error",
+        "@typescript-eslint/require-await": "error",
+        "@typescript-eslint/await-thenable": "error",
+        "@typescript-eslint/no-misused-promises": "error",
+
+        // General rules
+        "no-console": "warn",
+        "no-debugger": "error",
+        "prefer-const": "error",
+        "no-var": "error",
+        "eqeqeq": ["error", "always"],
+        "curly": ["error", "all"],
+        "brace-style": ["error", "1tbs"],
+
+        // Security rules
+        "no-eval": "error",
+        "no-implied-eval": "error",
+        "no-new-func": "error",
+
+        // Code quality
+        "complexity": ["warn", 10],
+        "max-depth": ["warn", 4],
+        "max-lines-per-function": ["warn", 100],
+        "max-params": ["warn", 5],
+
+        // Prettier integration
+        "prettier/prettier": "error"
+    },
+    "overrides": [
+        {
+            "files": ["*.test.ts", "*.spec.ts"],
+            "rules": {
+                "@typescript-eslint/no-explicit-any": "off",
+                "no-console": "off"
+            }
+        },
+        {
+            "files": ["safe/transaction-executor.ts", "safe/list-pending.ts"],
+            "rules": {
+                "no-console": "off"
+            }
+        }
+    ],
+    "ignorePatterns": [
+        "dist/",
+        "node_modules/",
+        "coverage/",
+        "logs/",
+        "broadcast/",
+        "cache/",
+        "out/"
+    ]
+}
