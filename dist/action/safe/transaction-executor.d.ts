@@ -16,7 +16,11 @@ interface ExecutionConfig {
 export declare class TransactionExecutor {
     private safeManager;
     private anvilManager;
-    constructor();
+    private constructor();
+    /**
+     * Static factory method to create and initialize TransactionExecutor
+     */
+    static create(): Promise<TransactionExecutor>;
     /**
      * Execute transactions from Foundry script with automatic broadcast generation
      */

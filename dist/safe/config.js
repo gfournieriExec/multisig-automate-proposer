@@ -12,8 +12,7 @@ const logger_1 = require("./logger");
 const validation_1 = require("./validation");
 // Load environment variables from .env.safe
 (0, dotenv_1.config)({ path: path.join(__dirname, '../.env.safe') });
-function getSafeConfig() {
-    const chainId = process.env.CHAIN_ID || '11155111'; // Default to Sepolia
+async function getSafeConfig() {
     const rpcUrl = process.env.RPC_URL;
     const safeAddress = process.env.SAFE_ADDRESS;
     const apiKey = process.env.SAFE_API_KEY;
@@ -35,13 +34,28 @@ function getSafeConfig() {
             missingVariable: 'SAFE_API_KEY',
         });
     }
+    // Get chain ID from RPC URL
+    let chainId;
+    try {
+        const provider = new ethers_1.ethers.JsonRpcProvider(rpcUrl);
+        const network = await provider.getNetwork();
+        chainId = network.chainId;
+        logger_1.logger.info('Chain ID retrieved from RPC', { chainId: chainId.toString() });
+    }
+    catch (error) {
+        logger_1.logger.error('Failed to get chain ID from RPC URL', error);
+        throw new errors_1.ConfigurationError('Could not retrieve chain ID from RPC URL', {
+            rpcUrl,
+            error: error.message,
+        });
+    }
     // Validate configuration
     try {
         validation_1.Validator.validateRpcUrl(rpcUrl);
         validation_1.Validator.validateAddress(safeAddress, 'SAFE_ADDRESS');
-        validation_1.Validator.validateChainId(chainId);
+        validation_1.Validator.validateChainId(chainId.toString());
         logger_1.logger.info('Safe configuration validated successfully', {
-            chainId,
+            chainId: chainId.toString(),
             rpcUrl: rpcUrl.substring(0, 20) + '...', // Log truncated URL for security
             safeAddress,
         });
@@ -52,7 +66,7 @@ function getSafeConfig() {
     }
     return {
         rpcUrl,
-        chainId: BigInt(chainId),
+        chainId,
         safeAddress,
         apiKey,
     };
@@ -85,10 +99,10 @@ function getProposerConfig() {
         throw error;
     }
 }
-function validateEnvironment() {
+async function validateEnvironment() {
     logger_1.logger.info('Validating environment configuration...');
     try {
-        getSafeConfig();
+        await getSafeConfig();
         getProposerConfig();
         // Additional validation
         const envValidation = validation_1.Validator.validateEnvironmentVariables(process.env);

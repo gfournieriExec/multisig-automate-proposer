@@ -114,7 +114,7 @@ async function main() {
     const parsedArgs = parseCommandLineArgs();
     try {
         (0, config_1.validateEnvironment)();
-        const safeManager = new safe_manager_1.SafeManager();
+        const safeManager = await safe_manager_1.SafeManager.create();
         const transactionType = parsedArgs.type || 'pending';
         console.log(`Fetching ${transactionType} transactions...`);
         console.log('');

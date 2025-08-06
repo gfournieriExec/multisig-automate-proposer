@@ -78,7 +78,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
             scriptPath: this.inputs.foundryScriptPath,
             dryRun: this.inputs.dryRun,
         });
-        const executor = new transaction_executor_1.TransactionExecutor();
+        const executor = await transaction_executor_1.TransactionExecutor.create();
         try {
             // Configure execution parameters based on inputs
             const executionConfig = {
@@ -108,7 +108,7 @@ SAFE_API_KEY=${this.inputs.safeApiKey}
     async listPendingTransactions() {
         logger_1.logger.info('Listing pending transactions');
         try {
-            const safeManager = new safe_manager_1.SafeManager();
+            const safeManager = await safe_manager_1.SafeManager.create();
             const pendingTxs = await safeManager.getPendingTransactions();
             // Output pending transactions as JSON
             core.setOutput('pending-transactions', JSON.stringify(pendingTxs, null, 2));

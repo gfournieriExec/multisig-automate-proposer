@@ -11,9 +11,16 @@ const safe_manager_1 = require("./safe-manager");
 const utils_1 = require("./utils");
 const validation_1 = require("./validation");
 class TransactionExecutor {
-    constructor() {
-        this.safeManager = new safe_manager_1.SafeManager();
+    constructor(safeManager) {
+        this.safeManager = safeManager;
         this.anvilManager = new anvil_manager_1.AnvilManager();
+    }
+    /**
+     * Static factory method to create and initialize TransactionExecutor
+     */
+    static async create() {
+        const safeManager = await safe_manager_1.SafeManager.create();
+        return new TransactionExecutor(safeManager);
     }
     /**
      * Execute transactions from Foundry script with automatic broadcast generation
@@ -391,7 +398,7 @@ Available scripts: ${(0, utils_1.getAvailableScripts)().join(', ')}
     }
     try {
         (0, config_1.validateEnvironment)();
-        const executor = new TransactionExecutor();
+        const executor = await TransactionExecutor.create();
         await executeScriptCommand(executor, args);
     }
     catch (error) {

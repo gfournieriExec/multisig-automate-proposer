@@ -8,7 +8,7 @@ export interface OwnerConfig {
     address: string;
     privateKey: string;
 }
-export declare function getSafeConfig(): SafeConfig;
+export declare function getSafeConfig(): Promise<SafeConfig>;
 export declare function getProposerConfig(): OwnerConfig;
-export declare function validateEnvironment(): void;
+export declare function validateEnvironment(): Promise<void>;
 //# sourceMappingURL=config.d.ts.map
