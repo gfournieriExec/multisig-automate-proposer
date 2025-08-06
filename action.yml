@@ -12,11 +12,6 @@ inputs:
     description: 'Safe multisig wallet address'
     required: true
   
-  safe-network:
-    description: 'Network name for Safe (mainnet, goerli, sepolia, polygon, etc.)'
-    required: true
-    default: 'mainnet'
-  
   # RPC Configuration
   rpc-url:
     description: 'RPC URL for blockchain interaction'
@@ -47,27 +42,10 @@ inputs:
     required: false
     default: 'propose'
   
-  # Transaction Configuration
-  transaction-description:
-    description: 'Description for the proposed transaction'
-    required: false
-    default: 'Automated transaction proposal'
-  
-  # Environment Configuration
-  environment:
-    description: 'Environment (production, staging, development)'
-    required: false
-    default: 'production'
-  
   # Optional Configuration
   gas-limit:
     description: 'Gas limit for transactions'
     required: false
-  
-  anvil-fork:
-    description: 'Whether to use Anvil fork for testing (true/false)'
-    required: false
-    default: 'false'
   
   dry-run:
     description: 'Perform a dry run without actual execution (true/false)'

@@ -269,12 +269,7 @@ export class Validator {
         envVars: Record<string, unknown>,
         errors: string[],
     ): void {
-        const required = [
-            'RPC_URL',
-            'SAFE_ADDRESS',
-            'SAFE_API_KEY',
-            'PROPOSER_PRIVATE_KEY',
-        ];
+        const required = ['RPC_URL', 'SAFE_ADDRESS', 'SAFE_API_KEY', 'PROPOSER_PRIVATE_KEY'];
 
         for (const envVar of required) {
             if (!envVars[envVar]) {

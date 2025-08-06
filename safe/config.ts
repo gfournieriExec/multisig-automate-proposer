@@ -76,12 +76,9 @@ export function getProposerConfig(): OwnerConfig {
 
     if (!privateKey) {
         logger.error('Missing required proposer configuration');
-        throw new ConfigurationError(
-            `PROPOSER_PRIVATE_KEY is required in .env.safe`,
-            {
-                missingPrivateKey: !privateKey,
-            },
-        );
+        throw new ConfigurationError(`PROPOSER_PRIVATE_KEY is required in .env.safe`, {
+            missingPrivateKey: !privateKey,
+        });
     }
 
     // Validate private key configuration
