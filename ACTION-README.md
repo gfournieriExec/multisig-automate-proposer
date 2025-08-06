@@ -14,16 +14,18 @@ A reusable GitHub Action for proposing transactions through Safe multisig wallet
 ## 📋 Prerequisites
 
 ### Required Secrets
+
 Store these as repository secrets:
 
-- `PROPOSER_ADDRESS`: Address of a Safe owner account
-- `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account
+- `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account (address is automatically derived)
 - `RPC_URL`: RPC endpoint for blockchain interaction
 
 ### Optional Secrets
+
 - `SAFE_API_KEY`: API key for Safe API service (for enhanced rate limits)
 
 ### Required Variables
+
 Configure these as repository variables:
 
 - `SAFE_ADDRESS`: Address of the Safe multisig wallet
@@ -36,26 +38,23 @@ Configure these as repository variables:
 name: Deploy Contract
 
 on:
-  push:
-    branches: [main]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Propose Safe Transaction
-        uses: gfournieriExec/multisig-automate-proposer@v1
-        with:
-          safe-address: ${{ vars.SAFE_ADDRESS }}
-          safe-network: 'mainnet'
-          rpc-url: ${{ secrets.RPC_URL }}
-          proposer-address: ${{ secrets.PROPOSER_ADDRESS }}
-          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
-          safe-api-key: ${{ secrets.SAFE_API_KEY }}  # Optional: for enhanced rate limits
-          foundry-script-path: 'script/Deploy.s.sol'
-          transaction-description: 'Deploy new contract version'
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Propose Safe Transaction
+              uses: gfournieriExec/multisig-automate-proposer@v1
+              with:
+                  safe-address: ${{ vars.SAFE_ADDRESS }}
+                  rpc-url: ${{ secrets.RPC_URL }}
+                  proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+                  safe-api-key: ${{ secrets.SAFE_API_KEY }} # Optional: for enhanced rate limits
+                  foundry-script-path: 'script/Deploy.s.sol'
 ```
 
 ### Advanced Usage with Multiple Networks
@@ -64,34 +63,31 @@ jobs:
 name: Multi-Network Deployment
 
 on:
-  workflow_dispatch:
-    inputs:
-      networks:
-        description: 'Target networks (comma-separated)'
-        required: true
-        default: 'mainnet,polygon'
+    workflow_dispatch:
+        inputs:
+            networks:
+                description: 'Target networks (comma-separated)'
+                required: true
+                default: 'mainnet,polygon'
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        network: ${{ fromJson(github.event.inputs.networks) }}
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Deploy to ${{ matrix.network }}
-        uses: gfournieriExec/multisig-automate-proposer@v1
-        with:
-          safe-address: ${{ vars[format('SAFE_ADDRESS_{0}', upper(matrix.network))] }}
-          safe-network: ${{ matrix.network }}
-          rpc-url: ${{ secrets[format('RPC_URL_{0}', upper(matrix.network))] }}
-          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
-          foundry-script-path: 'script/Deploy.s.sol'
-          foundry-script-args: '--network ${{ matrix.network }}'
-          transaction-description: 'Deploy to ${{ matrix.network }}'
-          environment: 'production'
+    deploy:
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                network: ${{ fromJson(github.event.inputs.networks) }}
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Deploy to ${{ matrix.network }}
+              uses: gfournieriExec/multisig-automate-proposer@v1
+              with:
+                  safe-address: ${{ vars[format('SAFE_ADDRESS_{0}', upper(matrix.network))] }}
+                  rpc-url: ${{ secrets[format('RPC_URL_{0}', upper(matrix.network))] }}
+                  proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+                  foundry-script-path: 'script/Deploy.s.sol'
+                  foundry-script-args: '--network ${{ matrix.network }}'
 ```
 
 ### Reusable Workflow
@@ -102,46 +98,44 @@ Create a reusable workflow in `.github/workflows/safe-deploy.yml`:
 name: Safe Transaction Proposer
 
 on:
-  workflow_call:
-    inputs:
-      script-path:
-        required: true
-        type: string
-      network:
-        required: true
-        type: string
-      description:
-        required: false
-        type: string
-        default: 'Automated deployment'
-    secrets:
-      proposer-private-key:
-        required: true
-      rpc-url:
-        required: true
-    outputs:
-      transaction-hash:
-        value: ${{ jobs.propose.outputs.transaction-hash }}
+    workflow_call:
+        inputs:
+            script-path:
+                required: true
+                type: string
+            network:
+                required: true
+                type: string
+            description:
+                required: false
+                type: string
+                default: 'Automated deployment'
+        secrets:
+            proposer-private-key:
+                required: true
+            rpc-url:
+                required: true
+        outputs:
+            transaction-hash:
+                value: ${{ jobs.propose.outputs.transaction-hash }}
 
 jobs:
-  propose:
-    runs-on: ubuntu-latest
-    outputs:
-      transaction-hash: ${{ steps.propose.outputs.transaction-hash }}
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Propose Transaction
-        id: propose
-        uses: gfournieriExec/multisig-automate-proposer@v1
-        with:
-          safe-address: ${{ vars.SAFE_ADDRESS }}
-          safe-network: ${{ inputs.network }}
-          rpc-url: ${{ secrets.rpc-url }}
-          proposer-private-key: ${{ secrets.proposer-private-key }}
-          foundry-script-path: ${{ inputs.script-path }}
-          transaction-description: ${{ inputs.description }}
+    propose:
+        runs-on: ubuntu-latest
+        outputs:
+            transaction-hash: ${{ steps.propose.outputs.transaction-hash }}
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Propose Transaction
+              id: propose
+              uses: gfournieriExec/multisig-automate-proposer@v1
+              with:
+                  safe-address: ${{ vars.SAFE_ADDRESS }}
+                  rpc-url: ${{ secrets.rpc-url }}
+                  proposer-private-key: ${{ secrets.proposer-private-key }}
+                  foundry-script-path: ${{ inputs.script-path }}
 ```
 
 Then use it in other workflows:
@@ -150,70 +144,67 @@ Then use it in other workflows:
 name: Deploy Contract
 
 on:
-  push:
-    branches: [main]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    uses: ./.github/workflows/safe-deploy.yml
-    with:
-      script-path: 'script/Deploy.s.sol'
-      network: 'mainnet'
-      description: 'Deploy new contract version'
-    secrets:
-      proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
-      rpc-url: ${{ secrets.RPC_URL }}
+    deploy:
+        uses: ./.github/workflows/safe-deploy.yml
+        with:
+            script-path: 'script/Deploy.s.sol'
+            network: 'mainnet'
+            description: 'Deploy new contract version'
+        secrets:
+            proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+            rpc-url: ${{ secrets.RPC_URL }}
 ```
 
 ## 📊 Inputs
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `safe-address` | Safe multisig wallet address | ✅ | - |
-| `safe-network` | Network name (mainnet, sepolia, polygon, etc.) | ✅ | `mainnet` |
-| `rpc-url` | RPC URL for blockchain interaction | ✅ | - |
-| `proposer-address` | Address of the proposer account (Safe owner) | ✅ | - |
-| `proposer-private-key` | Private key of Safe owner | ✅ | - |
-| `safe-api-key` | API key for Safe API service | ✅ | - |
-| `foundry-script-path` | Path to Foundry script | ✅ | - |
-| `foundry-script-args` | Additional script arguments | ❌ | `''` |
-| `action-mode` | Action to perform (propose/list-pending) | ❌ | `propose` |
-| `transaction-description` | Description for the transaction | ❌ | `'Automated transaction proposal'` |
-| `environment` | Environment (production/staging/development) | ❌ | `production` |
-| `gas-limit` | Gas limit for transactions | ❌ | - |
-| `anvil-fork` | Use Anvil fork for testing | ❌ | `false` |
-| `dry-run` | Perform dry run without execution | ❌ | `false` |
+| Input                  | Description                                                  | Required | Default   |
+| ---------------------- | ------------------------------------------------------------ | -------- | --------- |
+| `safe-address`         | Safe multisig wallet address                                 | ✅       | -         |
+| `rpc-url`              | RPC URL for blockchain interaction                           | ✅       | -         |
+| `proposer-private-key` | Private key of Safe owner (address is automatically derived) | ✅       | -         |
+| `safe-api-key`         | API key for Safe API service                                 | ✅       | -         |
+| `foundry-script-path`  | Path to Foundry script                                       | ✅       | -         |
+| `foundry-script-args`  | Additional script arguments                                  | ❌       | `''`      |
+| `action-mode`          | Action to perform (propose/list-pending)                     | ❌       | `propose` |
+| `gas-limit`            | Gas limit for transactions                                   | ❌       | -         |
+| `dry-run`              | Perform dry run without execution                            | ❌       | `false`   |
 
 ## 📤 Outputs
 
-| Output | Description |
-|--------|-------------|
-| `transaction-hash` | Hash of the first proposed transaction |
-| `transaction-hashes` | JSON array of all transaction hashes |
-| `transaction-count` | Number of transactions processed |
+| Output                 | Description                                               |
+| ---------------------- | --------------------------------------------------------- |
+| `transaction-hash`     | Hash of the first proposed transaction                    |
+| `transaction-hashes`   | JSON array of all transaction hashes                      |
+| `transaction-count`    | Number of transactions processed                          |
 | `pending-transactions` | JSON object with pending transactions (list-pending mode) |
-| `status` | Operation status (success/failed/pending) |
+| `status`               | Operation status (success/failed/pending)                 |
 
 ## 🔧 Action Modes
 
 ### 1. Propose Mode (Default)
+
 Executes Foundry script and proposes transactions to Safe:
 
 ```yaml
 - uses: gfournieriExec/multisig-automate-proposer@v1
   with:
-    action-mode: 'propose'
-    # ... other inputs
+      action-mode: 'propose'
+      # ... other inputs
 ```
 
 ### 2. List Pending Mode
+
 Lists all pending transactions in the Safe:
 
 ```yaml
 - uses: gfournieriExec/multisig-automate-proposer@v1
   with:
-    action-mode: 'list-pending'
-    # ... other inputs
+      action-mode: 'list-pending'
+      # ... other inputs
 ```
 
 ## 🌐 Supported Networks
@@ -228,16 +219,19 @@ Lists all pending transactions in the Safe:
 ## 🔒 Security Best Practices
 
 ### 1. Secret Management
+
 - Store private keys as repository secrets, never in code
 - Use environment-specific secrets for different networks
 - Rotate keys regularly
 
 ### 2. Safe Configuration
+
 - Use multi-signature requirements (minimum 2-of-3)
 - Verify all owners are trusted entities
 - Enable transaction confirmations
 
 ### 3. Network Security
+
 - Use reputable RPC providers
 - Verify contract addresses before deployment
 - Test on testnets before mainnet
@@ -251,15 +245,15 @@ The action provides comprehensive error handling:
   id: propose
   uses: gfournieriExec/multisig-automate-proposer@v1
   with:
-    # ... inputs
+      # ... inputs
   continue-on-error: true
 
 - name: Handle Failure
   if: steps.propose.outputs.status == 'failed'
   run: |
-    echo "Transaction proposal failed"
-    echo "Check logs for details"
-    exit 1
+      echo "Transaction proposal failed"
+      echo "Check logs for details"
+      exit 1
 ```
 
 ## 📝 Example Foundry Scripts
@@ -276,9 +270,9 @@ import "../src/MyContract.sol";
 contract DeployScript is Script {
     function run() external {
         vm.startBroadcast();
-        
+
         MyContract myContract = new MyContract();
-        
+
         vm.stopBroadcast();
     }
 }
@@ -296,14 +290,14 @@ import "../src/MyContractV2.sol";
 contract UpgradeScript is Script {
     function run() external {
         address proxyAddress = vm.envAddress("PROXY_ADDRESS");
-        
+
         vm.startBroadcast();
-        
+
         MyContractV2 implementation = new MyContractV2();
-        
+
         // Upgrade proxy to new implementation
         IProxy(proxyAddress).upgrade(address(implementation));
-        
+
         vm.stopBroadcast();
     }
 }

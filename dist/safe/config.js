@@ -5,14 +5,14 @@ exports.getProposerConfig = getProposerConfig;
 exports.validateEnvironment = validateEnvironment;
 const tslib_1 = require("tslib");
 const dotenv_1 = require("dotenv");
+const ethers_1 = require("ethers");
 const path = tslib_1.__importStar(require("path"));
 const errors_1 = require("./errors");
 const logger_1 = require("./logger");
 const validation_1 = require("./validation");
 // Load environment variables from .env.safe
 (0, dotenv_1.config)({ path: path.join(__dirname, '../.env.safe') });
-function getSafeConfig() {
-    const chainId = process.env.CHAIN_ID || '11155111'; // Default to Sepolia
+async function getSafeConfig() {
     const rpcUrl = process.env.RPC_URL;
     const safeAddress = process.env.SAFE_ADDRESS;
     const apiKey = process.env.SAFE_API_KEY;
@@ -34,13 +34,28 @@ function getSafeConfig() {
             missingVariable: 'SAFE_API_KEY',
         });
     }
+    // Get chain ID from RPC URL
+    let chainId;
+    try {
+        const provider = new ethers_1.ethers.JsonRpcProvider(rpcUrl);
+        const network = await provider.getNetwork();
+        chainId = network.chainId;
+        logger_1.logger.info('Chain ID retrieved from RPC', { chainId: chainId.toString() });
+    }
+    catch (error) {
+        logger_1.logger.error('Failed to get chain ID from RPC URL', error);
+        throw new errors_1.ConfigurationError('Could not retrieve chain ID from RPC URL', {
+            rpcUrl,
+            error: error.message,
+        });
+    }
     // Validate configuration
     try {
         validation_1.Validator.validateRpcUrl(rpcUrl);
         validation_1.Validator.validateAddress(safeAddress, 'SAFE_ADDRESS');
-        validation_1.Validator.validateChainId(chainId);
+        validation_1.Validator.validateChainId(chainId.toString());
         logger_1.logger.info('Safe configuration validated successfully', {
-            chainId,
+            chainId: chainId.toString(),
             rpcUrl: rpcUrl.substring(0, 20) + '...', // Log truncated URL for security
             safeAddress,
         });
@@ -51,43 +66,43 @@ function getSafeConfig() {
     }
     return {
         rpcUrl,
-        chainId: BigInt(chainId),
+        chainId,
         safeAddress,
         apiKey,
     };
 }
 function getProposerConfig() {
-    const address = process.env[`PROPOSER_ADDRESS`];
     const privateKey = process.env[`PROPOSER_PRIVATE_KEY`];
-    if (!address || !privateKey) {
+    if (!privateKey) {
         logger_1.logger.error('Missing required proposer configuration');
-        throw new errors_1.ConfigurationError(`PROPOSER_ADDRESS and PROPOSER_PRIVATE_KEY are required in .env.safe`, {
-            missingAddress: !address,
+        throw new errors_1.ConfigurationError(`PROPOSER_PRIVATE_KEY is required in .env.safe`, {
             missingPrivateKey: !privateKey,
         });
     }
-    // Validate proposer configuration
+    // Validate private key configuration
     try {
-        validation_1.Validator.validateAddress(address, 'PROPOSER_ADDRESS');
         validation_1.Validator.validatePrivateKey(privateKey, 'PROPOSER_PRIVATE_KEY');
+        // Derive address from private key using ethers
+        const wallet = new ethers_1.ethers.Wallet(privateKey);
+        const address = wallet.address;
         logger_1.logger.info('Proposer configuration validated successfully', {
             address,
             privateKeyLength: privateKey.length,
         });
+        return {
+            address,
+            privateKey,
+        };
     }
     catch (error) {
         logger_1.logger.error('Invalid proposer configuration', error);
         throw error;
     }
-    return {
-        address,
-        privateKey,
-    };
 }
-function validateEnvironment() {
+async function validateEnvironment() {
     logger_1.logger.info('Validating environment configuration...');
     try {
-        getSafeConfig();
+        await getSafeConfig();
         getProposerConfig();
         // Additional validation
         const envValidation = validation_1.Validator.validateEnvironmentVariables(process.env);

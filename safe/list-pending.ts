@@ -161,9 +161,9 @@ async function main(): Promise<void> {
     const parsedArgs = parseCommandLineArgs();
 
     try {
-        validateEnvironment();
+        await validateEnvironment();
 
-        const safeManager = new SafeManager();
+        const safeManager = await SafeManager.create();
         const transactionType = parsedArgs.type || 'pending';
 
         console.log(`Fetching ${transactionType} transactions...`);

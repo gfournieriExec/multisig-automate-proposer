@@ -10,16 +10,20 @@ const errors_1 = require("./errors");
 const logger_1 = require("./logger");
 const validation_1 = require("./validation");
 class SafeManager {
-    constructor() {
+    constructor(safeConfig) {
+        this.safeConfig = safeConfig;
+        this.apiKit = new api_kit_1.default({
+            chainId: this.safeConfig.chainId,
+        });
+        logger_1.logger.info('SafeManager initialized successfully', {
+            chainId: this.safeConfig.chainId,
+            safeAddress: this.safeConfig.safeAddress,
+        });
+    }
+    static async create() {
         try {
-            this.safeConfig = (0, config_1.getSafeConfig)();
-            this.apiKit = new api_kit_1.default({
-                chainId: this.safeConfig.chainId,
-            });
-            logger_1.logger.info('SafeManager initialized successfully', {
-                chainId: this.safeConfig.chainId,
-                safeAddress: this.safeConfig.safeAddress,
-            });
+            const safeConfig = await (0, config_1.getSafeConfig)();
+            return new SafeManager(safeConfig);
         }
         catch (error) {
             logger_1.logger.error('Failed to initialize SafeManager', { error });

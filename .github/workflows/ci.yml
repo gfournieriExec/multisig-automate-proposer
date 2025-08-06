@@ -67,7 +67,6 @@ jobs:
         uses: ./
         with:
           safe-address: '0x0000000000000000000000000000000000000000'
-          safe-network: 'sepolia'
           rpc-url: 'https://sepolia.infura.io/v3/dummy'
           proposer-private-key: '0x0000000000000000000000000000000000000000000000000000000000000001'
           foundry-script-path: 'script/dummy.s.sol'

@@ -7,10 +7,6 @@ on:
         description: 'Safe multisig wallet address'
         required: true
         type: string
-      safe-network:
-        description: 'Network name for Safe (mainnet, goerli, sepolia, polygon, etc.)'
-        required: true
-        type: string
       rpc-url:
         description: 'RPC URL for blockchain interaction'
         required: true
@@ -24,16 +20,6 @@ on:
         required: false
         type: string
         default: ''
-      transaction-description:
-        description: 'Description for the proposed transaction'
-        required: false
-        type: string
-        default: 'Automated transaction proposal'
-      environment:
-        description: 'Environment (production, staging, development)'
-        required: false
-        type: string
-        default: 'production'
       dry-run:
         description: 'Perform a dry run without actual execution'
         required: false
@@ -88,14 +74,11 @@ jobs:
         uses: ./
         with:
           safe-address: ${{ inputs.safe-address }}
-          safe-network: ${{ inputs.safe-network }}
           rpc-url: ${{ inputs.rpc-url }}
           proposer-private-key: ${{ secrets.proposer-private-key }}
           foundry-script-path: ${{ inputs.foundry-script-path }}
           foundry-script-args: ${{ inputs.foundry-script-args }}
           action-mode: 'propose'
-          transaction-description: ${{ inputs.transaction-description }}
-          environment: ${{ inputs.environment }}
           dry-run: ${{ inputs.dry-run }}
       
       - name: Output results

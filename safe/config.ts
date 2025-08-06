@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import * as path from 'path';
 import { ConfigurationError } from './errors';
 import { logger } from './logger';
@@ -19,8 +20,7 @@ export interface OwnerConfig {
     privateKey: string;
 }
 
-export function getSafeConfig(): SafeConfig {
-    const chainId = process.env.CHAIN_ID || '11155111'; // Default to Sepolia
+export async function getSafeConfig(): Promise<SafeConfig> {
     const rpcUrl = process.env.RPC_URL;
     const safeAddress = process.env.SAFE_ADDRESS;
     const apiKey = process.env.SAFE_API_KEY;
@@ -46,14 +46,30 @@ export function getSafeConfig(): SafeConfig {
         });
     }
 
+    // Get chain ID from RPC URL
+    let chainId: bigint;
+    try {
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const network = await provider.getNetwork();
+        chainId = network.chainId;
+
+        logger.info('Chain ID retrieved from RPC', { chainId: chainId.toString() });
+    } catch (error) {
+        logger.error('Failed to get chain ID from RPC URL', error as Error);
+        throw new ConfigurationError('Could not retrieve chain ID from RPC URL', {
+            rpcUrl,
+            error: (error as Error).message,
+        });
+    }
+
     // Validate configuration
     try {
         Validator.validateRpcUrl(rpcUrl);
         Validator.validateAddress(safeAddress, 'SAFE_ADDRESS');
-        Validator.validateChainId(chainId);
+        Validator.validateChainId(chainId.toString());
 
         logger.info('Safe configuration validated successfully', {
-            chainId,
+            chainId: chainId.toString(),
             rpcUrl: rpcUrl.substring(0, 20) + '...', // Log truncated URL for security
             safeAddress,
         });
@@ -64,52 +80,50 @@ export function getSafeConfig(): SafeConfig {
 
     return {
         rpcUrl,
-        chainId: BigInt(chainId),
+        chainId,
         safeAddress,
         apiKey,
     };
 }
 
 export function getProposerConfig(): OwnerConfig {
-    const address = process.env[`PROPOSER_ADDRESS`];
     const privateKey = process.env[`PROPOSER_PRIVATE_KEY`];
 
-    if (!address || !privateKey) {
+    if (!privateKey) {
         logger.error('Missing required proposer configuration');
-        throw new ConfigurationError(
-            `PROPOSER_ADDRESS and PROPOSER_PRIVATE_KEY are required in .env.safe`,
-            {
-                missingAddress: !address,
-                missingPrivateKey: !privateKey,
-            },
-        );
+        throw new ConfigurationError(`PROPOSER_PRIVATE_KEY is required in .env.safe`, {
+            missingPrivateKey: !privateKey,
+        });
     }
 
-    // Validate proposer configuration
+    // Validate private key configuration
     try {
-        Validator.validateAddress(address, 'PROPOSER_ADDRESS');
         Validator.validatePrivateKey(privateKey, 'PROPOSER_PRIVATE_KEY');
+
+        // Derive address from private key using ethers
+        const wallet = new ethers.Wallet(privateKey);
+        const address = wallet.address;
 
         logger.info('Proposer configuration validated successfully', {
             address,
             privateKeyLength: privateKey.length,
         });
+
+        return {
+            address,
+            privateKey,
+        };
     } catch (error) {
         logger.error('Invalid proposer configuration', error as Error);
         throw error;
     }
-
-    return {
-        address,
-        privateKey,
-    };
 }
 
-export function validateEnvironment(): void {
+export async function validateEnvironment(): Promise<void> {
     logger.info('Validating environment configuration...');
 
     try {
-        getSafeConfig();
+        await getSafeConfig();
         getProposerConfig();
 
         // Additional validation

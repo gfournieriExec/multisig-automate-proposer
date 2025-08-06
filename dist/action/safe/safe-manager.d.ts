@@ -3,7 +3,8 @@ import { MetaTransactionData } from '@safe-global/types-kit';
 export declare class SafeManager {
     private apiKit;
     private safeConfig;
-    constructor();
+    private constructor();
+    static create(): Promise<SafeManager>;
     /**
      * Create a Protocol Kit instance for a specific owner
      */

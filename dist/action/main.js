@@ -18,57 +18,39 @@ class GitHubActionRunner {
     parseInputs() {
         return {
             safeAddress: core.getInput('safe-address', { required: true }),
-            safeNetwork: core.getInput('safe-network', { required: true }),
             rpcUrl: core.getInput('rpc-url', { required: true }),
-            proposerAddress: core.getInput('proposer-address', { required: true }),
             proposerPrivateKey: core.getInput('proposer-private-key', { required: true }),
             safeApiKey: core.getInput('safe-api-key'),
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
             foundryScriptArgs: core.getInput('foundry-script-args') || '',
             actionMode: core.getInput('action-mode') || 'propose',
-            transactionDescription: core.getInput('transaction-description') || 'Automated transaction proposal',
-            environment: core.getInput('environment') || 'production',
-            gasLimit: core.getInput('gas-limit') || undefined,
-            anvilFork: core.getBooleanInput('anvil-fork'),
-            dryRun: core.getBooleanInput('dry-run'),
+            dryRun: core.getBooleanInput('dry-run') || false,
         };
     }
     setupEnvironment() {
         // Create environment configuration for the Safe integration
         const envConfig = `
 SAFE_ADDRESS=${this.inputs.safeAddress}
-SAFE_NETWORK=${this.inputs.safeNetwork}
 RPC_URL=${this.inputs.rpcUrl}
-PROPOSER_ADDRESS=${this.inputs.proposerAddress}
 PROPOSER_PRIVATE_KEY=${this.inputs.proposerPrivateKey}
 SAFE_API_KEY=${this.inputs.safeApiKey}
-ENVIRONMENT=${this.inputs.environment}
-${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
         `.trim();
         // Write environment configuration to a temporary file
         (0, fs_1.writeFileSync)('.env.safe', envConfig);
         // Set environment variables for the process
         process.env.SAFE_ADDRESS = this.inputs.safeAddress;
-        process.env.SAFE_NETWORK = this.inputs.safeNetwork;
         process.env.RPC_URL = this.inputs.rpcUrl;
-        process.env.PROPOSER_ADDRESS = this.inputs.proposerAddress;
         process.env.PROPOSER_PRIVATE_KEY = this.inputs.proposerPrivateKey;
-        process.env.ENVIRONMENT = this.inputs.environment;
         process.env.SAFE_API_KEY = this.inputs.safeApiKey;
-        if (this.inputs.gasLimit) {
-            process.env.GAS_LIMIT = this.inputs.gasLimit;
-        }
         logger_1.logger.info('Environment configured for GitHub Action', {
             safeAddress: this.inputs.safeAddress,
-            safeNetwork: this.inputs.safeNetwork,
-            environment: this.inputs.environment,
             actionMode: this.inputs.actionMode,
             dryRun: this.inputs.dryRun,
         });
     }
     async validateInputs() {
         try {
-            (0, config_1.validateEnvironment)();
+            await (0, config_1.validateEnvironment)();
             // Validate chain ID matches network
             const chainId = await (0, utils_1.getChainIdFromRpc)(this.inputs.rpcUrl);
             logger_1.logger.info('Validated RPC connection', { chainId });
@@ -96,7 +78,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
             scriptPath: this.inputs.foundryScriptPath,
             dryRun: this.inputs.dryRun,
         });
-        const executor = new transaction_executor_1.TransactionExecutor();
+        const executor = await transaction_executor_1.TransactionExecutor.create();
         try {
             // Configure execution parameters based on inputs
             const executionConfig = {
@@ -126,7 +108,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
     async listPendingTransactions() {
         logger_1.logger.info('Listing pending transactions');
         try {
-            const safeManager = new safe_manager_1.SafeManager();
+            const safeManager = await safe_manager_1.SafeManager.create();
             const pendingTxs = await safeManager.getPendingTransactions();
             // Output pending transactions as JSON
             core.setOutput('pending-transactions', JSON.stringify(pendingTxs, null, 2));

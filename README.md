@@ -46,24 +46,22 @@ This project provides a comprehensive solution for:
 name: Deploy Contract
 
 on:
-  push:
-    branches: [main]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Propose Safe Transaction
-        uses: gfournieriExec/multisig-automate-proposer@v1
-        with:
-          safe-address: ${{ vars.SAFE_ADDRESS }}
-          safe-network: 'mainnet'
-          rpc-url: ${{ secrets.RPC_URL }}
-          proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
-          foundry-script-path: 'script/Deploy.s.sol'
-          transaction-description: 'Deploy new contract version'
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Propose Safe Transaction
+              uses: gfournieriExec/multisig-automate-proposer@v1
+              with:
+                  safe-address: ${{ vars.SAFE_ADDRESS }}
+                  rpc-url: ${{ secrets.RPC_URL }}
+                  proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+                  foundry-script-path: 'script/Deploy.s.sol'
 ```
 
 ### Advanced Multi-Network Deployment
@@ -71,15 +69,14 @@ jobs:
 ```yaml
 - name: Deploy to Multiple Networks
   strategy:
-    matrix:
-      network: [mainnet, polygon, arbitrum]
+      matrix:
+          network: [mainnet, polygon, arbitrum]
   uses: gfournieriExec/multisig-automate-proposer@v1
   with:
-    safe-address: ${{ vars[format('SAFE_ADDRESS_{0}', upper(matrix.network))] }}
-    safe-network: ${{ matrix.network }}
-    rpc-url: ${{ secrets[format('RPC_URL_{0}', upper(matrix.network))] }}
-    proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
-    foundry-script-path: 'script/Deploy.s.sol'
+      safe-address: ${{ vars[format('SAFE_ADDRESS_{0}', upper(matrix.network))] }}
+      rpc-url: ${{ secrets[format('RPC_URL_{0}', upper(matrix.network))] }}
+      proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
+      foundry-script-path: 'script/Deploy.s.sol'
 ```
 
 📚 **[View Complete GitHub Action Documentation →](ACTION-README.md)**
