@@ -1,4 +1,10 @@
-import SafeApiKit from '@safe-global/api-kit';
+import SafeApiKit, {
+    AllTransactionsListResponse,
+    SafeInfoResponse,
+    SafeModuleTransactionListResponse,
+    SafeMultisigTransactionListResponse,
+    TransferListResponse,
+} from '@safe-global/api-kit';
 import Safe from '@safe-global/protocol-kit';
 import { MetaTransactionData, OperationType } from '@safe-global/types-kit';
 import { getProposerConfig, getSafeConfig, OwnerConfig } from './config';
@@ -133,7 +139,7 @@ export class SafeManager {
     /**
      * Get a specific transaction by hash
      */
-    async getTransaction(safeTxHash: string): Promise<any> {
+    async getTransaction(safeTxHash: string): Promise<unknown> {
         return await this.apiKit.getTransaction(safeTxHash);
     }
 
@@ -144,35 +150,35 @@ export class SafeManager {
     /**
      * Get pending transactions
      */
-    async getPendingTransactions() {
+    async getPendingTransactions(): Promise<SafeMultisigTransactionListResponse> {
         return await this.apiKit.getPendingTransactions(this.safeConfig.safeAddress);
     }
 
     /**
      * Get all transactions
      */
-    async getAllTransactions() {
+    async getAllTransactions(): Promise<AllTransactionsListResponse> {
         return await this.apiKit.getAllTransactions(this.safeConfig.safeAddress);
     }
 
     /**
      * Get incoming transactions
      */
-    async getIncomingTransactions() {
+    async getIncomingTransactions(): Promise<TransferListResponse> {
         return await this.apiKit.getIncomingTransactions(this.safeConfig.safeAddress);
     }
 
     /**
      * Get multisig transactions
      */
-    async getMultisigTransactions() {
+    async getMultisigTransactions(): Promise<SafeMultisigTransactionListResponse> {
         return await this.apiKit.getMultisigTransactions(this.safeConfig.safeAddress);
     }
 
     /**
      * Get module transactions
      */
-    async getModuleTransactions() {
+    async getModuleTransactions(): Promise<SafeModuleTransactionListResponse> {
         return await this.apiKit.getModuleTransactions(this.safeConfig.safeAddress);
     }
 
@@ -188,7 +194,7 @@ export class SafeManager {
     /**
      * Get Safe information including owners
      */
-    async getSafeInfo() {
+    async getSafeInfo(): Promise<SafeInfoResponse> {
         return await this.apiKit.getSafeInfo(this.safeConfig.safeAddress);
     }
 
@@ -217,7 +223,7 @@ export class SafeManager {
         const ownerConfig = getProposerConfig();
         const protocolKit = await this.createProtocolKit(ownerConfig);
 
-        console.log(`   Transaction data: ${JSON.stringify(transactionData, null, 2)}`);
+        logger.debug('Transaction data for proposal', { transactionData });
 
         // Create transaction with explicit nonce
         const safeTransaction = await protocolKit.createTransaction({
@@ -230,7 +236,9 @@ export class SafeManager {
         const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
         const signature = await protocolKit.signHash(safeTxHash);
 
-        console.log(`   Safe transaction data: ${JSON.stringify(safeTransaction.data, null, 2)}`);
+        logger.debug('Safe transaction data created', {
+            safeTransactionData: safeTransaction.data,
+        });
 
         // Propose transaction to the service
         try {
@@ -242,34 +250,44 @@ export class SafeManager {
                 senderSignature: signature.data,
             });
         } catch (error) {
-            console.error(`   Error proposing transaction with nonce ${nonce}:`, error);
-            console.error(
-                `   Transaction data that failed:`,
-                JSON.stringify(transactionData, null, 2),
-            );
-
-            // Add more detailed error information
-            if (error && typeof error === 'object') {
-                if ('response' in error && error.response && typeof error.response === 'object') {
-                    if ('status' in error.response) {
-                        console.error(`   API Response Status:`, error.response.status);
-                    }
-                    if ('data' in error.response) {
-                        console.error(`   API Response Data:`, error.response.data);
-                    }
-                }
-                if ('code' in error) {
-                    console.error(`   Error Code:`, error.code);
-                }
-                if ('details' in error) {
-                    console.error(`   Error Details:`, error.details);
-                }
-            }
-
+            this.handleProposeTransactionError(error, nonce, transactionData);
             throw error;
         }
 
         return safeTxHash;
+    }
+
+    /**
+     * Handle errors from propose transaction operations
+     */
+    private handleProposeTransactionError(
+        error: unknown,
+        nonce: number,
+        transactionData: MetaTransactionData,
+    ): void {
+        logger.error('Error proposing transaction with nonce', {
+            nonce,
+            error,
+            transactionData,
+        });
+
+        // Add more detailed error information
+        if (error && typeof error === 'object') {
+            if ('response' in error && error.response && typeof error.response === 'object') {
+                if ('status' in error.response) {
+                    logger.error('API Response Status', { status: error.response.status });
+                }
+                if ('data' in error.response) {
+                    logger.error('API Response Data', { data: error.response.data });
+                }
+            }
+            if ('code' in error) {
+                logger.error('Error Code', { code: error.code });
+            }
+            if ('details' in error) {
+                logger.error('Error Details', { details: error.details });
+            }
+        }
     }
 
     /**
@@ -283,14 +301,16 @@ export class SafeManager {
         }
 
         const baseNonce = await this.getCurrentNonce();
-        console.log(`   Current base nonce: ${baseNonce}`);
+        logger.info('Current base nonce', { baseNonce });
         const hashes: string[] = [];
 
         for (let i = 0; i < transactionsData.length; i++) {
             const nonce = baseNonce + i;
-            console.log(
-                `Proposing transaction ${i + 1}/${transactionsData.length} with nonce ${nonce}`,
-            );
+            logger.info('Proposing transaction', {
+                transactionIndex: i + 1,
+                totalTransactions: transactionsData.length,
+                nonce,
+            });
 
             try {
                 const hash = await this.proposeTransactionWithNonce(transactionsData[i], nonce);
@@ -301,17 +321,23 @@ export class SafeManager {
                     await new Promise((resolve) => setTimeout(resolve, 500));
                 }
             } catch (error) {
-                console.error(`   Failed to propose transaction ${i + 1} with nonce ${nonce}`);
+                logger.error('Failed to propose transaction', {
+                    transactionIndex: i + 1,
+                    nonce,
+                });
 
                 // If nonce conflict, try to get fresh nonce and retry
                 if (error instanceof Error && error.message.includes('Unprocessable Content')) {
-                    console.log(`   Retrying with fresh nonce...`);
+                    logger.info('Retrying with fresh nonce');
                     const freshNonce = await this.getCurrentNonce();
-                    console.log(`   Fresh nonce: ${freshNonce}`);
+                    logger.info('Fresh nonce retrieved', { freshNonce });
 
                     if (freshNonce !== nonce) {
                         const retryNonce = freshNonce + i;
-                        console.log(`   Retrying transaction ${i + 1} with nonce ${retryNonce}`);
+                        logger.info('Retrying transaction with updated nonce', {
+                            transactionIndex: i + 1,
+                            retryNonce,
+                        });
                         const hash = await this.proposeTransactionWithNonce(
                             transactionsData[i],
                             retryNonce,

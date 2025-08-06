@@ -1,0 +1,49 @@
+
+> rlc-multichain-safe-integration@1.0.0 lint:fix
+> eslint "safe/**/*.ts" "action/**/*.ts" --fix
+
+
+/Users/gabriel/Documents/iexec/tmp/multisig-automate-proposer/safe/list-pending.ts
+   12:1   warning  Async function 'main' has too many lines (145). Maximum allowed is 100  max-lines-per-function
+   12:1   warning  Async function 'main' has a complexity of 21. Maximum allowed is 10     complexity
+  114:36  warning  Arrow function has a complexity of 15. Maximum allowed is 10            complexity
+
+/Users/gabriel/Documents/iexec/tmp/multisig-automate-proposer/safe/safe-manager.ts
+  136:55  warning  Unexpected any. Specify a different type                                                  @typescript-eslint/no-explicit-any
+  147:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  154:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  161:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  168:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  175:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  191:5   warning  Missing return type on function                                                           @typescript-eslint/explicit-function-return-type
+  213:38  warning  Async method 'proposeTransactionWithNonce' has a complexity of 11. Maximum allowed is 10  complexity
+  220:9   warning  Unexpected console statement                                                              no-console
+  233:9   warning  Unexpected console statement                                                              no-console
+  245:13  warning  Unexpected console statement                                                              no-console
+  246:13  warning  Unexpected console statement                                                              no-console
+  255:25  warning  Unexpected console statement                                                              no-console
+  258:25  warning  Unexpected console statement                                                              no-console
+  262:21  warning  Unexpected console statement                                                              no-console
+  265:21  warning  Unexpected console statement                                                              no-console
+  286:9   warning  Unexpected console statement                                                              no-console
+  291:13  warning  Unexpected console statement                                                              no-console
+  304:17  warning  Unexpected console statement                                                              no-console
+  308:21  warning  Unexpected console statement                                                              no-console
+  310:21  warning  Unexpected console statement                                                              no-console
+  314:25  warning  Unexpected console statement                                                              no-console
+
+/Users/gabriel/Documents/iexec/tmp/multisig-automate-proposer/safe/simple-propose-transaction.ts
+  36:1  warning  Async function 'main' has too many lines (162). Maximum allowed is 100  max-lines-per-function
+  36:1  warning  Async function 'main' has a complexity of 27. Maximum allowed is 10     complexity
+
+/Users/gabriel/Documents/iexec/tmp/multisig-automate-proposer/safe/transaction-executor.ts
+  321:5  warning  Async method 'runFoundryScript' has too many lines (128). Maximum allowed is 100     max-lines-per-function
+  541:1  warning  Async function 'executeScriptCommand' has a complexity of 14. Maximum allowed is 10  complexity
+
+/Users/gabriel/Documents/iexec/tmp/multisig-automate-proposer/safe/validation.ts
+  164:35  warning  Static method 'validateTransactionData' has a complexity of 14. Maximum allowed is 10       complexity
+  222:40  warning  Static method 'validateEnvironmentVariables' has a complexity of 16. Maximum allowed is 10  complexity
+  410:8   warning  Function 'validateSchema' has a complexity of 30. Maximum allowed is 10                     complexity
+
+✖ 32 problems (0 errors, 32 warnings)
+

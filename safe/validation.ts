@@ -168,51 +168,79 @@ export class Validator {
         operation?: string | number;
     }): void {
         this.validateAddress(txData.to, 'transaction recipient');
+        this.validateTransactionValue(txData.value);
+        this.validateTransactionData_Data(txData.data);
+        this.validateTransactionOperation(txData.operation);
+    }
 
-        // Validate value (should be numeric string or hex)
-        if (txData.value && txData.value !== '0') {
-            if (!/^\d+$/.test(txData.value) && !txData.value.startsWith('0x')) {
+    /**
+     * Validate transaction value
+     */
+    private static validateTransactionValue(value: string): void {
+        if (value && value !== '0') {
+            if (!/^\d+$/.test(value) && !value.startsWith('0x')) {
                 throw new ValidationError(
                     'Invalid transaction value format',
                     ErrorCode.INVALID_TRANSACTION_DATA,
-                    { field: 'value', value: txData.value },
+                    { field: 'value', value },
                 );
             }
         }
+    }
 
-        // Validate data (should be valid hex)
-        if (txData.data && txData.data !== '0x') {
-            this.validateHexString(txData.data, 'transaction data');
+    /**
+     * Validate transaction data field
+     */
+    private static validateTransactionData_Data(data: string): void {
+        if (data && data !== '0x') {
+            this.validateHexString(data, 'transaction data');
+        }
+    }
+
+    /**
+     * Validate transaction operation
+     */
+    private static validateTransactionOperation(operation?: string | number): void {
+        if (operation === undefined) {
+            return;
         }
 
-        // Validate operation type (handle both string and numeric values)
-        if (txData.operation !== undefined) {
-            // Handle string values
-            if (
-                typeof txData.operation === 'string' &&
-                !['call', 'delegatecall'].includes(txData.operation)
-            ) {
-                throw new ValidationError(
-                    'Invalid operation type: must be "call" or "delegatecall"',
-                    ErrorCode.INVALID_TRANSACTION_DATA,
-                    { field: 'operation', value: txData.operation },
-                );
-            } else if (typeof txData.operation === 'number' && ![0, 1].includes(txData.operation)) {
-                throw new ValidationError(
-                    'Invalid operation type: must be 0 (Call) or 1 (DelegateCall)',
-                    ErrorCode.INVALID_TRANSACTION_DATA,
-                    { field: 'operation', value: txData.operation },
-                );
-            } else if (
-                typeof txData.operation !== 'string' &&
-                typeof txData.operation !== 'number'
-            ) {
-                throw new ValidationError(
-                    'Invalid operation type: must be string or number',
-                    ErrorCode.INVALID_TRANSACTION_DATA,
-                    { field: 'operation', value: txData.operation, type: typeof txData.operation },
-                );
-            }
+        if (typeof operation === 'string') {
+            this.validateStringOperation(operation);
+        } else if (typeof operation === 'number') {
+            this.validateNumericOperation(operation);
+        } else {
+            throw new ValidationError(
+                'Invalid operation type: must be string or number',
+                ErrorCode.INVALID_TRANSACTION_DATA,
+                { field: 'operation', value: operation, type: typeof operation },
+            );
+        }
+    }
+
+    /**
+     * Validate string operation type
+     */
+    private static validateStringOperation(operation: string): void {
+        if (!['call', 'delegatecall'].includes(operation)) {
+            throw new ValidationError(
+                'Invalid operation type: must be "call" or "delegatecall"',
+                ErrorCode.INVALID_TRANSACTION_DATA,
+                { field: 'operation', value: operation },
+            );
+        }
+    }
+
+    /**
+     * Validate numeric operation type
+     */
+    private static validateNumericOperation(operation: number): void {
+        if (![0, 1].includes(operation)) {
+            throw new ValidationError(
+                'Invalid operation type: must be 0 (Call) or 1 (DelegateCall)',
+                ErrorCode.INVALID_TRANSACTION_DATA,
+                { field: 'operation', value: operation },
+            );
         }
     }
 
@@ -223,7 +251,24 @@ export class Validator {
         const errors: string[] = [];
         const warnings: string[] = [];
 
-        // Required variables
+        this.validateRequiredEnvVars(envVars, errors);
+        this.validateEnvVarFormats(envVars, errors);
+        this.checkProductionSecurity(envVars, warnings);
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            warnings,
+        };
+    }
+
+    /**
+     * Validate required environment variables
+     */
+    private static validateRequiredEnvVars(
+        envVars: Record<string, unknown>,
+        errors: string[],
+    ): void {
         const required = [
             'RPC_URL',
             'SAFE_ADDRESS',
@@ -237,52 +282,73 @@ export class Validator {
                 errors.push(`Missing required environment variable: ${envVar}`);
             }
         }
+    }
 
-        // Validate specific formats
-        if (envVars.RPC_URL) {
+    /**
+     * Validate environment variable formats
+     */
+    private static validateEnvVarFormats(envVars: Record<string, unknown>, errors: string[]): void {
+        this.validateEnvVarFormat(
+            envVars,
+            'RPC_URL',
+            (value) => this.validateRpcUrl(value as string),
+            errors,
+        );
+
+        this.validateEnvVarFormat(
+            envVars,
+            'SAFE_ADDRESS',
+            (value) => this.validateAddress(value as string, 'SAFE_ADDRESS'),
+            errors,
+        );
+
+        this.validateEnvVarFormat(
+            envVars,
+            'PROPOSER_ADDRESS',
+            (value) => this.validateAddress(value as string, 'PROPOSER_ADDRESS'),
+            errors,
+        );
+
+        this.validateEnvVarFormat(
+            envVars,
+            'PROPOSER_PRIVATE_KEY',
+            (value) => this.validatePrivateKey(value as string, 'PROPOSER_PRIVATE_KEY'),
+            errors,
+        );
+
+        this.validateEnvVarFormat(
+            envVars,
+            'CHAIN_ID',
+            (value) => this.validateChainId(value as string | number),
+            errors,
+        );
+    }
+
+    /**
+     * Validate a specific environment variable format
+     */
+    private static validateEnvVarFormat(
+        envVars: Record<string, unknown>,
+        varName: string,
+        validator: (value: unknown) => void,
+        errors: string[],
+    ): void {
+        if (envVars[varName]) {
             try {
-                this.validateRpcUrl(envVars.RPC_URL as string);
+                validator(envVars[varName]);
             } catch (error) {
-                errors.push(`Invalid RPC_URL: ${(error as Error).message}`);
+                errors.push(`Invalid ${varName}: ${(error as Error).message}`);
             }
         }
+    }
 
-        if (envVars.SAFE_ADDRESS) {
-            try {
-                this.validateAddress(envVars.SAFE_ADDRESS as string, 'SAFE_ADDRESS');
-            } catch (error) {
-                errors.push(`Invalid SAFE_ADDRESS: ${(error as Error).message}`);
-            }
-        }
-
-        if (envVars.PROPOSER_ADDRESS) {
-            try {
-                this.validateAddress(envVars.PROPOSER_ADDRESS as string, 'PROPOSER_ADDRESS');
-            } catch (error) {
-                errors.push(`Invalid PROPOSER_ADDRESS: ${(error as Error).message}`);
-            }
-        }
-
-        if (envVars.PROPOSER_PRIVATE_KEY) {
-            try {
-                this.validatePrivateKey(
-                    envVars.PROPOSER_PRIVATE_KEY as string,
-                    'PROPOSER_PRIVATE_KEY',
-                );
-            } catch (error) {
-                errors.push(`Invalid PROPOSER_PRIVATE_KEY: ${(error as Error).message}`);
-            }
-        }
-
-        if (envVars.CHAIN_ID) {
-            try {
-                this.validateChainId(envVars.CHAIN_ID as string | number);
-            } catch (error) {
-                errors.push(`Invalid CHAIN_ID: ${(error as Error).message}`);
-            }
-        }
-
-        // Check for sensitive data in logs
+    /**
+     * Check for production security issues
+     */
+    private static checkProductionSecurity(
+        envVars: Record<string, unknown>,
+        warnings: string[],
+    ): void {
         if (process.env.NODE_ENV === 'production') {
             if (
                 envVars.PROPOSER_PRIVATE_KEY &&
@@ -291,12 +357,6 @@ export class Validator {
                 warnings.push('Private key detected in environment - ensure logs are secure');
             }
         }
-
-        return {
-            isValid: errors.length === 0,
-            errors,
-            warnings,
-        };
     }
 
     /**
@@ -407,6 +467,92 @@ export interface ValidationSchema {
     };
 }
 
+function validateSchemaField(
+    field: string,
+    value: unknown,
+    rules: ValidationSchema[string],
+    errors: string[],
+): void {
+    if (isRequiredFieldMissing(value, rules)) {
+        errors.push(`${field} is required`);
+        return;
+    }
+
+    if (isOptionalFieldEmpty(value, rules)) {
+        return;
+    }
+
+    try {
+        validateFieldType(field, value, rules.type);
+        validateFieldLength(field, value, rules);
+        validateFieldPattern(field, value, rules.pattern);
+
+        if (rules.custom) {
+            rules.custom(value);
+        }
+    } catch (error) {
+        errors.push(`${field}: ${(error as Error).message}`);
+    }
+}
+
+function isRequiredFieldMissing(value: unknown, rules: ValidationSchema[string]): boolean {
+    return !!rules.required && (value === undefined || value === null || value === '');
+}
+
+function isOptionalFieldEmpty(value: unknown, rules: ValidationSchema[string]): boolean {
+    return !rules.required && (value === undefined || value === null || value === '');
+}
+function validateFieldType(field: string, value: unknown, type: string): void {
+    const typeValidators: Record<string, () => void> = {
+        string: () => validateStringType(field, value),
+        number: () => validateNumberType(field, value),
+        boolean: () => validateBooleanType(field, value),
+        address: () => Validator.validateAddress(value as string, field),
+        hex: () => Validator.validateHexString(value as string, field),
+        url: () => Validator.validateRpcUrl(value as string, field),
+    };
+
+    const validator = typeValidators[type];
+    if (validator) {
+        validator();
+    }
+}
+
+function validateStringType(field: string, value: unknown): void {
+    if (typeof value !== 'string') {
+        throw new Error(`${field} must be a string`);
+    }
+}
+
+function validateNumberType(field: string, value: unknown): void {
+    if (typeof value !== 'number' && isNaN(Number(value))) {
+        throw new Error(`${field} must be a number`);
+    }
+}
+
+function validateBooleanType(field: string, value: unknown): void {
+    if (typeof value !== 'boolean') {
+        throw new Error(`${field} must be a boolean`);
+    }
+}
+
+function validateFieldLength(field: string, value: unknown, rules: ValidationSchema[string]): void {
+    if (typeof value === 'string') {
+        if (rules.minLength && value.length < rules.minLength) {
+            throw new Error(`${field} must be at least ${rules.minLength} characters long`);
+        }
+        if (rules.maxLength && value.length > rules.maxLength) {
+            throw new Error(`${field} must be no more than ${rules.maxLength} characters long`);
+        }
+    }
+}
+
+function validateFieldPattern(field: string, value: unknown, pattern?: RegExp): void {
+    if (pattern && typeof value === 'string' && !pattern.test(value)) {
+        throw new Error(`${field} does not match required pattern`);
+    }
+}
+
 export function validateSchema(
     data: Record<string, unknown>,
     schema: ValidationSchema,
@@ -415,70 +561,7 @@ export function validateSchema(
     const warnings: string[] = [];
 
     for (const [field, rules] of Object.entries(schema)) {
-        const value = data[field];
-
-        // Check required fields
-        if (rules.required && (value === undefined || value === null || value === '')) {
-            errors.push(`${field} is required`);
-            continue;
-        }
-
-        // Skip validation for optional empty fields
-        if (!rules.required && (value === undefined || value === null || value === '')) {
-            continue;
-        }
-
-        // Type validation
-        try {
-            switch (rules.type) {
-                case 'string':
-                    if (typeof value !== 'string') {
-                        errors.push(`${field} must be a string`);
-                    }
-                    break;
-                case 'number':
-                    if (typeof value !== 'number' && isNaN(Number(value))) {
-                        errors.push(`${field} must be a number`);
-                    }
-                    break;
-                case 'boolean':
-                    if (typeof value !== 'boolean') {
-                        errors.push(`${field} must be a boolean`);
-                    }
-                    break;
-                case 'address':
-                    Validator.validateAddress(value as string, field);
-                    break;
-                case 'hex':
-                    Validator.validateHexString(value as string, field);
-                    break;
-                case 'url':
-                    Validator.validateRpcUrl(value as string, field);
-                    break;
-            }
-
-            // Length validation
-            if (typeof value === 'string') {
-                if (rules.minLength && value.length < rules.minLength) {
-                    errors.push(`${field} must be at least ${rules.minLength} characters long`);
-                }
-                if (rules.maxLength && value.length > rules.maxLength) {
-                    errors.push(`${field} must be no more than ${rules.maxLength} characters long`);
-                }
-            }
-
-            // Pattern validation
-            if (rules.pattern && typeof value === 'string' && !rules.pattern.test(value)) {
-                errors.push(`${field} does not match required pattern`);
-            }
-
-            // Custom validation
-            if (rules.custom) {
-                rules.custom(value);
-            }
-        } catch (error) {
-            errors.push(`${field}: ${(error as Error).message}`);
-        }
+        validateSchemaField(field, data[field], rules, errors);
     }
 
     return {
