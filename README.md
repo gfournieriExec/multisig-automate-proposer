@@ -310,24 +310,19 @@ safe/
 
 ## 🧪 Testing
 
-### Test Categories
+### Development Testing
 
-- Unit tests for utility functions
-- Integration tests for Safe operations
-- End-to-end tests for complete workflows
-- Performance tests for batch operations
-
-### Running Tests
+Currently, the project focuses on manual testing and validation:
 
 ```bash
-# Run all tests
-npm test
+# Validate code quality and build
+npm run validate
 
-# Run with coverage
-npm run test:coverage
+# Build and check for errors
+npm run build
 
-# Run specific test suite
-npm run test -- --grep "SafeManager"
+# Test with dry-run mode
+npm run execute-tx -- --dry-run --rpc-url https://sepolia.rpc.com
 ```
 
 ## 🚀 Deployment
@@ -365,7 +360,6 @@ RUN npm ci --only=production
 COPY dist/ ./dist/
 COPY .env.safe ./
 
-EXPOSE 3000
 CMD ["node", "dist/safe/transaction-executor.js"]
 ```
 
@@ -376,8 +370,8 @@ CMD ["node", "dist/safe/transaction-executor.js"]
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/new-feature`
 3. Install dependencies: `npm install`
-4. Make changes and add tests
-5. Run checks: `npm run format && npm run build && npm test`
+4. Make changes and add validation
+5. Run checks: `npm run format && npm run build && npm run validate`
 6. Commit with conventional commits: `git commit -m "feat: add new feature"`
 7. Push and create pull request
 
@@ -386,12 +380,12 @@ CMD ["node", "dist/safe/transaction-executor.js"]
 - **TypeScript**: Strict typing enabled
 - **Formatting**: Prettier with 4-space tabs
 - **Linting**: ESLint with recommended rules
-- **Testing**: Jest with >80% coverage requirement
+- **Validation**: Comprehensive validation pipeline
 - **Documentation**: JSDoc comments for all public APIs
 
 ### Pull Request Process
 
-1. Ensure all tests pass
+1. Ensure all validation passes
 2. Update documentation for new features
 3. Add changelog entry
 4. Ensure no security vulnerabilities
