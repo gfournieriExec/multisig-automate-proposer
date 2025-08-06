@@ -182,7 +182,6 @@ class Validator {
             'RPC_URL',
             'SAFE_ADDRESS',
             'SAFE_API_KEY',
-            'PROPOSER_ADDRESS',
             'PROPOSER_PRIVATE_KEY',
         ];
         for (const envVar of required) {
@@ -197,7 +196,6 @@ class Validator {
     static validateEnvVarFormats(envVars, errors) {
         this.validateEnvVarFormat(envVars, 'RPC_URL', (value) => this.validateRpcUrl(value), errors);
         this.validateEnvVarFormat(envVars, 'SAFE_ADDRESS', (value) => this.validateAddress(value, 'SAFE_ADDRESS'), errors);
-        this.validateEnvVarFormat(envVars, 'PROPOSER_ADDRESS', (value) => this.validateAddress(value, 'PROPOSER_ADDRESS'), errors);
         this.validateEnvVarFormat(envVars, 'PROPOSER_PRIVATE_KEY', (value) => this.validatePrivateKey(value, 'PROPOSER_PRIVATE_KEY'), errors);
         this.validateEnvVarFormat(envVars, 'CHAIN_ID', (value) => this.validateChainId(value), errors);
     }
