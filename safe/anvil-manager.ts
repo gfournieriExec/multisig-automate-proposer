@@ -1,4 +1,5 @@
 import { ChildProcess, spawn } from 'child_process';
+import { logger } from './logger';
 
 export interface AnvilConfig {
     port?: number;
@@ -51,7 +52,7 @@ export class AnvilManager {
             const accounts = config.accounts || 10;
             const balance = config.balance || 10000;
 
-            console.log(`Starting Anvil fork from: ${config.forkUrl}`);
+            logger.info(`Starting Anvil fork from: ${config.forkUrl}`);
 
             const anvilArgs = [
                 '--fork-url',
@@ -69,12 +70,12 @@ export class AnvilManager {
             // Add auto-impersonate if we have accounts to unlock
             if (config.unlockAccounts && config.unlockAccounts.length > 0) {
                 anvilArgs.push('--auto-impersonate');
-                console.log(
+                logger.info(
                     `Auto-impersonate enabled for ${config.unlockAccounts.length} account(s)`,
                 );
             }
 
-            console.log(`Anvil command: anvil ${anvilArgs.join(' ')}`);
+            logger.info(`Anvil command: anvil ${anvilArgs.join(' ')}`);
 
             this.anvilProcess = spawn('anvil', anvilArgs, {
                 cwd: process.cwd(),
@@ -85,34 +86,38 @@ export class AnvilManager {
             let startupComplete = false;
 
             // Monitor stdout for startup confirmation
-            this.anvilProcess.stdout?.on('data', (data) => {
-                const output = data.toString();
-                console.log(`Anvil: ${output.trim()}`);
+            this.anvilProcess.stdout?.on('data', (data: Buffer) => {
+                const output = String(data);
+                logger.info(`Anvil: ${output.trim()}`);
 
                 // Look for the "Listening on" message to confirm startup
                 if (output.includes('Listening on') && !startupComplete) {
                     startupComplete = true;
                     this.isStarted = true;
                     this.currentConfig = config;
-                    console.log(`Anvil fork started successfully on ${host}:${port}`);
+                    logger.info(`Anvil fork started successfully on ${host}:${port}`);
 
                     // Fund any unlock accounts after startup
                     if (config.unlockAccounts && config.unlockAccounts.length > 0) {
                         this.fundUnlockAccounts(config.unlockAccounts, balance, host, port).catch(
                             (error: Error) => {
-                                console.error(`Failed to fund unlock accounts: ${error.message}`);
+                                logger.error(`Failed to fund unlock accounts: ${error.message}`);
                             },
                         );
                     }
 
-                    resolve(this.anvilProcess!);
+                    if (this.anvilProcess) {
+                        resolve(this.anvilProcess);
+                    } else {
+                        reject(new Error('Anvil process is null after startup'));
+                    }
                 }
             });
 
             // Monitor stderr for errors
-            this.anvilProcess.stderr?.on('data', (data) => {
-                const error = data.toString();
-                console.error(`Anvil Error: ${error.trim()}`);
+            this.anvilProcess.stderr?.on('data', (data: Buffer) => {
+                const errorOutput = String(data);
+                logger.error(`Anvil Error: ${errorOutput.trim()}`);
             });
 
             this.anvilProcess.on('error', (error) => {
@@ -145,7 +150,7 @@ export class AnvilManager {
      */
     stop(): void {
         if (this.anvilProcess && this.isStarted) {
-            console.log('Stopping Anvil fork...');
+            logger.info('Stopping Anvil fork...');
             this.anvilProcess.kill('SIGTERM');
             this.cleanup();
         }
@@ -156,7 +161,7 @@ export class AnvilManager {
      */
     stopOnError(): void {
         if (this.anvilProcess) {
-            console.log('Stopping Anvil fork due to error...');
+            logger.info('Stopping Anvil fork due to error...');
             this.anvilProcess.kill('SIGTERM');
             this.cleanup();
         }
@@ -199,7 +204,7 @@ export class AnvilManager {
         // Convert balance from ETH to Wei (18 decimals)
         const balanceWei = `0x${(BigInt(balance) * BigInt(10) ** BigInt(18)).toString(16)}`;
 
-        console.log(`Funding ${accounts.length} unlock account(s) with ${balance} ETH each...`);
+        logger.info(`Funding ${accounts.length} unlock account(s) with ${balance} ETH each...`);
 
         for (const account of accounts) {
             try {
@@ -220,15 +225,15 @@ export class AnvilManager {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const result = await response.json();
+                const result = (await response.json()) as { error?: { message: string } };
 
                 if (result.error) {
                     throw new Error(`RPC error: ${result.error.message}`);
                 }
 
-                console.log(`Successfully funded account ${account} with ${balance} ETH`);
-            } catch (error) {
-                console.error(`Failed to fund account ${account}: ${error}`);
+                logger.info(`Successfully funded account ${account} with ${balance} ETH`);
+            } catch (error: unknown) {
+                logger.error(`Failed to fund account ${account}: ${String(error)}`);
                 throw error;
             }
         }

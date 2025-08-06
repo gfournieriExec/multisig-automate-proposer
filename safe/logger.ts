@@ -12,8 +12,8 @@ export interface LogEntry {
     timestamp: string;
     level: string;
     message: string;
-    metadata?: Record<string, any>;
-    error?: Record<string, any>;
+    metadata?: Record<string, unknown>;
+    error?: Record<string, unknown>;
 }
 
 export interface LoggerConfig {
@@ -110,7 +110,9 @@ export class Logger {
         if (logFiles.length >= maxFiles) {
             const filesToRemove = logFiles.slice(maxFiles - 1);
             filesToRemove.forEach((file) => {
-                fs.unlinkSync(path.join(this.config.logDirectory!, file));
+                if (this.config.logDirectory) {
+                    fs.unlinkSync(path.join(this.config.logDirectory, file));
+                }
             });
         }
 
@@ -126,7 +128,7 @@ export class Logger {
     private formatMessage(
         level: LogLevel,
         message: string,
-        metadata?: Record<string, any>,
+        metadata?: Record<string, unknown>,
     ): string {
         const timestamp = new Date().toISOString();
         const levelName = LogLevel[level];
@@ -136,7 +138,9 @@ export class Logger {
                 timestamp,
                 level: levelName,
                 message,
-                ...(metadata && { metadata: this.sanitizeMetadata(metadata) }),
+                ...(metadata && {
+                    metadata: this.sanitizeMetadata(metadata) as Record<string, unknown>,
+                }),
             };
             return JSON.stringify(logEntry);
         } else {
@@ -150,7 +154,7 @@ export class Logger {
     /**
      * Sanitize metadata to handle non-serializable values like BigInt
      */
-    private sanitizeMetadata(obj: any): any {
+    private sanitizeMetadata(obj: unknown): unknown {
         if (obj === null || obj === undefined) {
             return obj;
         }
@@ -167,8 +171,8 @@ export class Logger {
             return obj.map((item) => this.sanitizeMetadata(item));
         }
 
-        const sanitized: Record<string, any> = {};
-        for (const [key, value] of Object.entries(obj)) {
+        const sanitized: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
             sanitized[key] = this.sanitizeMetadata(value);
         }
 
@@ -184,8 +188,8 @@ export class Logger {
             fs.appendFileSync(this.logFilePath, formattedMessage + '\n');
             this.rotateLogsIfNeeded();
         } catch (error) {
-            // Fallback to console if file writing fails
-            console.error('Failed to write to log file:', error);
+            // Fallback to stderr if file writing fails (avoid using console to prevent lint issues)
+            process.stderr.write(`Failed to write to log file: ${String(error)}\n`);
         }
     }
 
@@ -205,13 +209,13 @@ export class Logger {
         const colorCode = colors[level] || '';
 
         if (this.config.format === 'json') {
-            console.log(formattedMessage);
+            process.stdout.write(formattedMessage + '\n');
         } else {
-            console.log(`${colorCode}${formattedMessage}${reset}`);
+            process.stdout.write(`${colorCode}${formattedMessage}${reset}\n`);
         }
     }
 
-    private log(level: LogLevel, message: string, metadata?: Record<string, any>): void {
+    private log(level: LogLevel, message: string, metadata?: Record<string, unknown>): void {
         if (!this.shouldLog(level)) {
             return;
         }
@@ -222,8 +226,8 @@ export class Logger {
         this.writeToFile(formattedMessage);
     }
 
-    error(message: string, error?: Error | Record<string, any>): void {
-        const metadata: Record<string, any> = {};
+    error(message: string, error?: Error | Record<string, unknown>): void {
+        const metadata: Record<string, unknown> = {};
 
         if (error) {
             if (error instanceof Error) {
@@ -240,42 +244,42 @@ export class Logger {
         this.log(LogLevel.ERROR, message, metadata);
     }
 
-    warn(message: string, metadata?: Record<string, any>): void {
+    warn(message: string, metadata?: Record<string, unknown>): void {
         this.log(LogLevel.WARN, message, metadata);
     }
 
-    info(message: string, metadata?: Record<string, any>): void {
+    info(message: string, metadata?: Record<string, unknown>): void {
         this.log(LogLevel.INFO, message, metadata);
     }
 
-    debug(message: string, metadata?: Record<string, any>): void {
+    debug(message: string, metadata?: Record<string, unknown>): void {
         this.log(LogLevel.DEBUG, message, metadata);
     }
 
     // Convenience methods for specific use cases
-    transaction(hash: string, action: string, metadata?: Record<string, any>): void {
+    transaction(hash: string, action: string, metadata?: Record<string, unknown>): void {
         this.info(`Transaction ${action}: ${hash}`, metadata);
     }
 
-    network(action: string, metadata?: Record<string, any>): void {
+    network(action: string, metadata?: Record<string, unknown>): void {
         this.info(`Network ${action}`, metadata);
     }
 
-    safe(action: string, metadata?: Record<string, any>): void {
+    safe(action: string, metadata?: Record<string, unknown>): void {
         this.info(`Safe ${action}`, metadata);
     }
 
-    foundry(action: string, metadata?: Record<string, any>): void {
+    foundry(action: string, metadata?: Record<string, unknown>): void {
         this.info(`Foundry ${action}`, metadata);
     }
 
     // Performance logging
-    performance(operation: string, duration: number, metadata?: Record<string, any>): void {
+    performance(operation: string, duration: number, metadata?: Record<string, unknown>): void {
         this.info(`Performance: ${operation} completed in ${duration}ms`, metadata);
     }
 
     // Audit logging for sensitive operations
-    audit(action: string, user: string, metadata?: Record<string, any>): void {
+    audit(action: string, user: string, metadata?: Record<string, unknown>): void {
         this.info(`Audit: ${user} performed ${action}`, {
             audit: true,
             user,
@@ -289,32 +293,30 @@ export class Logger {
 export const logger = new Logger();
 
 // Helper function to create child loggers with context
-export function createLogger(context: Record<string, any>): Logger {
+export function createLogger(context: Record<string, unknown>): Logger {
     return new Logger({
         ...context,
     });
 }
 
 // Performance measurement utility
-export function measurePerformance<T>(
+export async function measurePerformance<T>(
     operation: string,
     fn: () => Promise<T>,
     loggerInstance: Logger = logger,
 ): Promise<T> {
-    return new Promise(async (resolve, reject) => {
-        const start = Date.now();
-        try {
-            const result = await fn();
-            const duration = Date.now() - start;
-            loggerInstance.performance(operation, duration);
-            resolve(result);
-        } catch (error) {
-            const duration = Date.now() - start;
-            loggerInstance.error(
-                `Performance: ${operation} failed after ${duration}ms`,
-                error as Error,
-            );
-            reject(error);
-        }
-    });
+    const start = Date.now();
+    try {
+        const result = await fn();
+        const duration = Date.now() - start;
+        loggerInstance.performance(operation, duration);
+        return result;
+    } catch (error) {
+        const duration = Date.now() - start;
+        loggerInstance.error(
+            `Performance: ${operation} failed after ${duration}ms`,
+            error as Error,
+        );
+        throw error;
+    }
 }

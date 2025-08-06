@@ -92,7 +92,7 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
 
     private async validateInputs(): Promise<void> {
         try {
-            await validateEnvironment();
+            validateEnvironment();
 
             // Validate chain ID matches network
             const chainId = await getChainIdFromRpc(this.inputs.rpcUrl);
@@ -114,8 +114,8 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
                 break;
             default:
                 throw new SafeTransactionError(
+                    `Invalid action mode: ${String(this.inputs.actionMode)}`,
                     ErrorCode.UNKNOWN_ERROR,
-                    `Invalid action mode: ${this.inputs.actionMode}`,
                 );
         }
     }
@@ -209,8 +209,11 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
 // Execute the action
 if (require.main === module) {
     const runner = new GitHubActionRunner();
-    runner.run().catch((error) => {
-        console.error('Unhandled error in GitHub Action:', error);
+    runner.run().catch((error: unknown) => {
+        logger.error(
+            'Unhandled error in GitHub Action:',
+            error instanceof Error ? error : new Error(String(error)),
+        );
         process.exit(1);
     });
 }

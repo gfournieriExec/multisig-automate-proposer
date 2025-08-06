@@ -24,7 +24,7 @@ interface BroadcastTransaction {
     contractName: string | null;
     contractAddress: string;
     function: string;
-    arguments: any[];
+    arguments: unknown[];
     transaction: {
         from: string;
         to: string;
@@ -34,16 +34,16 @@ interface BroadcastTransaction {
         nonce: string;
         chainId: string;
     };
-    additionalContracts: any[];
+    additionalContracts: unknown[];
     isFixedGasLimit: boolean;
 }
 
 interface BroadcastFile {
     transactions: BroadcastTransaction[];
-    receipts: any[];
-    libraries: any[];
-    pending: any[];
-    returns: any;
+    receipts: unknown[];
+    libraries: unknown[];
+    pending: unknown[];
+    returns: unknown;
     timestamp: number;
     chain: number;
     multi: boolean;
@@ -158,7 +158,7 @@ export class TransactionExecutor {
         const scriptName = config.scriptName || defaultScriptName;
         console.log('Using script name for broadcast file:', scriptName);
 
-        const transactions = await this.readBroadcastFile(scriptName, chainId);
+        const transactions = this.readBroadcastFile(scriptName, chainId);
 
         if (transactions.length === 0) {
             logger.warn('No transactions found in broadcast file', { scriptName, chainId });
@@ -354,7 +354,6 @@ export class TransactionExecutor {
 
             return new Promise((resolve, reject) => {
                 const command: string = 'forge';
-                let args: string[];
                 const env = { ...process.env };
 
                 // Determine the RPC URL to use for forge script
@@ -377,7 +376,14 @@ export class TransactionExecutor {
                 }
 
                 const forgeScript = `${scriptPath}:${contractName}`;
-                args = ['script', forgeScript, '--rpc-url', forgeRpcUrl, '--broadcast', '-vvv'];
+                const args: string[] = [
+                    'script',
+                    forgeScript,
+                    '--rpc-url',
+                    forgeRpcUrl,
+                    '--broadcast',
+                    '-vvv',
+                ];
 
                 // Add forge options if provided
                 if (config.forgeOptions) {
@@ -403,22 +409,23 @@ export class TransactionExecutor {
                     env,
                 });
 
-                childProcess.on('close', async (code) => {
+                childProcess.on('close', (code) => {
                     console.log(`Forge process completed with exit code: ${code}`);
 
                     // Clean up Anvil process
                     this.anvilManager.stop();
 
                     if (code === 0) {
-                        try {
-                            console.log('Forge script executed successfully, fetching chain ID...');
-                            const chainId = await getChainIdFromRpc(config.rpcUrl);
-                            console.log('Chain ID obtained:', chainId);
-                            resolve(chainId);
-                        } catch (error) {
-                            console.error('Error getting chain ID:', error);
-                            reject(error);
-                        }
+                        console.log('Forge script executed successfully, fetching chain ID...');
+                        getChainIdFromRpc(config.rpcUrl)
+                            .then((chainId) => {
+                                console.log('Chain ID obtained:', chainId);
+                                resolve(chainId);
+                            })
+                            .catch((error) => {
+                                console.error('Error getting chain ID:', error);
+                                reject(new Error(`Error getting chain ID: ${String(error)}`));
+                            });
                     } else {
                         const errorMsg = `Forge process exited with code ${code}`;
                         console.error(errorMsg);
@@ -443,10 +450,7 @@ export class TransactionExecutor {
     /**
      * Read the broadcast file and extract transactions
      */
-    private async readBroadcastFile(
-        scriptName: string,
-        chainId: string,
-    ): Promise<BroadcastTransaction[]> {
+    private readBroadcastFile(scriptName: string, chainId: string): BroadcastTransaction[] {
         const broadcastPath = getBroadcastFilePath(scriptName, chainId);
         console.log('Reading broadcast file from:', broadcastPath);
 
@@ -495,7 +499,7 @@ export class TransactionExecutor {
 }
 
 // CLI functionality
-async function main() {
+async function main(): Promise<void> {
     const args = process.argv.slice(2);
 
     if (args.length === 0) {
@@ -534,8 +538,8 @@ Available scripts: ${getAvailableScripts().join(', ')}
     }
 }
 
-async function executeScriptCommand(executor: TransactionExecutor, args: string[]) {
-    const config: any = { dryRun: false, rpcUrl: 'http://localhost:8545' };
+async function executeScriptCommand(executor: TransactionExecutor, args: string[]): Promise<void> {
+    const config: ExecutionConfig = { dryRun: false, rpcUrl: 'http://localhost:8545' };
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -597,5 +601,5 @@ async function executeScriptCommand(executor: TransactionExecutor, args: string[
 }
 
 if (require.main === module) {
-    main();
+    main().catch(console.error);
 }

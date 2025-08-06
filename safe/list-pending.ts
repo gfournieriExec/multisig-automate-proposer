@@ -9,7 +9,7 @@ interface ListPendingArgs {
     limit?: string;
 }
 
-async function main() {
+async function main(): Promise<void> {
     const args = process.argv.slice(2);
 
     const parsedArgs: ListPendingArgs = {};
@@ -43,6 +43,7 @@ Examples:
   npm run list-pending -- --type pending --limit 10
         `);
                 process.exit(0);
+                break;
             default:
                 if (key.startsWith('--')) {
                     console.error(`Unknown argument: ${key}`);
@@ -60,7 +61,7 @@ Examples:
         console.log(`Fetching ${transactionType} transactions...`);
         console.log('');
 
-        let transactions: any;
+        let transactions: { results?: unknown[]; count?: number } | undefined;
 
         switch (transactionType) {
             case 'pending':
@@ -79,16 +80,29 @@ Examples:
                 transactions = await safeManager.getModuleTransactions();
                 break;
             default:
-                console.error(`Unknown transaction type: ${transactionType}`);
+                console.error(`Unknown transaction type: ${String(transactionType)}`);
                 process.exit(1);
         }
 
-        if (!transactions || !transactions.results || transactions.results.length === 0) {
+        if (
+            !transactions ||
+            !Array.isArray(transactions.results) ||
+            transactions.results.length === 0
+        ) {
             console.log(`No ${transactionType} transactions found.`);
             return;
         }
 
-        const results = transactions.results;
+        const results = transactions.results as Array<{
+            safeTxHash?: string;
+            to?: string;
+            value?: string;
+            data?: string;
+            confirmations?: Array<{ owner?: string }>;
+            confirmationsRequired?: number;
+            isExecuted?: boolean;
+            submissionDate?: string;
+        }>;
         const limit = parsedArgs.limit ? parseInt(parsedArgs.limit) : results.length;
         const transactionsToShow = results.slice(0, limit);
 
@@ -97,24 +111,26 @@ Examples:
         );
         console.log('');
 
-        transactionsToShow.forEach((tx: any, index: number) => {
+        transactionsToShow.forEach((tx, index: number) => {
             console.log(`Transaction ${index + 1}:`);
-            console.log(`   Hash: ${tx.safeTxHash}`);
-            console.log(`   To: ${tx.to}`);
-            console.log(`   Value: ${formatWeiToEther(tx.value)} ETH (${tx.value} wei)`);
-            console.log(`   Data: ${truncateData(tx.data)}`);
+            console.log(`   Hash: ${tx.safeTxHash || 'N/A'}`);
+            console.log(`   To: ${tx.to || 'N/A'}`);
+            console.log(
+                `   Value: ${formatWeiToEther(tx.value || '0')} ETH (${tx.value || '0'} wei)`,
+            );
+            console.log(`   Data: ${truncateData(tx.data || '')}`);
             console.log(
                 `   Confirmations: ${tx.confirmations?.length || 0}/${tx.confirmationsRequired || 'N/A'}`,
             );
             console.log(
-                `   Executable: ${tx.isExecuted ? 'Executed' : tx.confirmations?.length >= tx.confirmationsRequired ? 'Ready' : 'Pending'}`,
+                `   Executable: ${tx.isExecuted ? 'Executed' : (tx.confirmations?.length || 0) >= (tx.confirmationsRequired || 0) ? 'Ready' : 'Pending'}`,
             );
-            console.log(`   Submission Date: ${formatDate(tx.submissionDate)}`);
+            console.log(`   Submission Date: ${formatDate(tx.submissionDate || '')}`);
 
             if (tx.confirmations && tx.confirmations.length > 0) {
                 console.log(`   Confirmed by:`);
-                tx.confirmations.forEach((confirmation: any) => {
-                    console.log(`     - ${confirmation.owner}`);
+                tx.confirmations.forEach((confirmation) => {
+                    console.log(`     - ${confirmation.owner || 'Unknown'}`);
                 });
             }
 
@@ -140,5 +156,5 @@ Examples:
 }
 
 if (require.main === module) {
-    main();
+    void main();
 }

@@ -1,4 +1,6 @@
 import { ethers } from 'ethers';
+import fs from 'fs';
+import path from 'path';
 import { ErrorCode, ValidationError } from './errors';
 
 /**
@@ -15,7 +17,7 @@ export class Validator {
     /**
      * Validate Ethereum address
      */
-    static validateAddress(address: string, fieldName: string = 'address'): void {
+    static validateAddress(address: string, fieldName = 'address'): void {
         if (!address) {
             throw new ValidationError(`${fieldName} is required`, ErrorCode.INVALID_ADDRESS, {
                 field: fieldName,
@@ -25,7 +27,7 @@ export class Validator {
 
         if (!ethers.isAddress(address)) {
             throw new ValidationError(
-                `Invalid ${fieldName}: ${address}`,
+                `Invalid ${fieldName}: ${String(address)}`,
                 ErrorCode.INVALID_ADDRESS,
                 { field: fieldName, value: address },
             );
@@ -116,9 +118,9 @@ export class Validator {
         const knownChainIds = [1, 11155111, 42161, 421614, 31337, 1337];
         if (!knownChainIds.includes(numericChainId)) {
             // This is a warning, not an error
-            console.warn(
+            process.stderr.write(
                 `Warning: Chain ID ${numericChainId} is not in the list of known networks. ` +
-                    `Known chains: ${knownChainIds.join(', ')}`,
+                    `Known chains: ${knownChainIds.join(', ')}\n`,
             );
         }
     }
@@ -195,17 +197,16 @@ export class Validator {
                     ErrorCode.INVALID_TRANSACTION_DATA,
                     { field: 'operation', value: txData.operation },
                 );
-            }
-            // Handle numeric values (OperationType enum: 0 = Call, 1 = DelegateCall)
-            else if (typeof txData.operation === 'number' && ![0, 1].includes(txData.operation)) {
+            } else if (typeof txData.operation === 'number' && ![0, 1].includes(txData.operation)) {
                 throw new ValidationError(
                     'Invalid operation type: must be 0 (Call) or 1 (DelegateCall)',
                     ErrorCode.INVALID_TRANSACTION_DATA,
                     { field: 'operation', value: txData.operation },
                 );
-            }
-            // Handle invalid types
-            else if (typeof txData.operation !== 'string' && typeof txData.operation !== 'number') {
+            } else if (
+                typeof txData.operation !== 'string' &&
+                typeof txData.operation !== 'number'
+            ) {
                 throw new ValidationError(
                     'Invalid operation type: must be string or number',
                     ErrorCode.INVALID_TRANSACTION_DATA,
@@ -218,7 +219,7 @@ export class Validator {
     /**
      * Validate environment variables
      */
-    static validateEnvironmentVariables(envVars: Record<string, any>): ValidationResult {
+    static validateEnvironmentVariables(envVars: Record<string, unknown>): ValidationResult {
         const errors: string[] = [];
         const warnings: string[] = [];
 
@@ -240,7 +241,7 @@ export class Validator {
         // Validate specific formats
         if (envVars.RPC_URL) {
             try {
-                this.validateRpcUrl(envVars.RPC_URL);
+                this.validateRpcUrl(envVars.RPC_URL as string);
             } catch (error) {
                 errors.push(`Invalid RPC_URL: ${(error as Error).message}`);
             }
@@ -248,7 +249,7 @@ export class Validator {
 
         if (envVars.SAFE_ADDRESS) {
             try {
-                this.validateAddress(envVars.SAFE_ADDRESS, 'SAFE_ADDRESS');
+                this.validateAddress(envVars.SAFE_ADDRESS as string, 'SAFE_ADDRESS');
             } catch (error) {
                 errors.push(`Invalid SAFE_ADDRESS: ${(error as Error).message}`);
             }
@@ -256,7 +257,7 @@ export class Validator {
 
         if (envVars.PROPOSER_ADDRESS) {
             try {
-                this.validateAddress(envVars.PROPOSER_ADDRESS, 'PROPOSER_ADDRESS');
+                this.validateAddress(envVars.PROPOSER_ADDRESS as string, 'PROPOSER_ADDRESS');
             } catch (error) {
                 errors.push(`Invalid PROPOSER_ADDRESS: ${(error as Error).message}`);
             }
@@ -264,7 +265,10 @@ export class Validator {
 
         if (envVars.PROPOSER_PRIVATE_KEY) {
             try {
-                this.validatePrivateKey(envVars.PROPOSER_PRIVATE_KEY, 'PROPOSER_PRIVATE_KEY');
+                this.validatePrivateKey(
+                    envVars.PROPOSER_PRIVATE_KEY as string,
+                    'PROPOSER_PRIVATE_KEY',
+                );
             } catch (error) {
                 errors.push(`Invalid PROPOSER_PRIVATE_KEY: ${(error as Error).message}`);
             }
@@ -272,7 +276,7 @@ export class Validator {
 
         if (envVars.CHAIN_ID) {
             try {
-                this.validateChainId(envVars.CHAIN_ID);
+                this.validateChainId(envVars.CHAIN_ID as string | number);
             } catch (error) {
                 errors.push(`Invalid CHAIN_ID: ${(error as Error).message}`);
             }
@@ -280,7 +284,10 @@ export class Validator {
 
         // Check for sensitive data in logs
         if (process.env.NODE_ENV === 'production') {
-            if (envVars.PROPOSER_PRIVATE_KEY && envVars.PROPOSER_PRIVATE_KEY.length > 10) {
+            if (
+                envVars.PROPOSER_PRIVATE_KEY &&
+                (envVars.PROPOSER_PRIVATE_KEY as string).length > 10
+            ) {
                 warnings.push('Private key detected in environment - ensure logs are secure');
             }
         }
@@ -304,9 +311,6 @@ export class Validator {
                 field: 'filePath',
             });
         }
-
-        const fs = require('fs');
-        const path = require('path');
 
         // Check if file exists for read operations
         if (requiredPermissions.includes('read') && !fs.existsSync(filePath)) {
@@ -362,8 +366,8 @@ export class Validator {
             .trim();
 
         if (sanitized !== input) {
-            console.warn(
-                `Input sanitized for ${fieldName}: removed potentially dangerous characters`,
+            process.stderr.write(
+                `Input sanitized for ${fieldName}: removed potentially dangerous characters\n`,
             );
         }
 
@@ -399,12 +403,12 @@ export interface ValidationSchema {
         minLength?: number;
         maxLength?: number;
         pattern?: RegExp;
-        custom?: (value: any) => void;
+        custom?: (value: unknown) => void;
     };
 }
 
 export function validateSchema(
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     schema: ValidationSchema,
 ): ValidationResult {
     const errors: string[] = [];
@@ -443,13 +447,13 @@ export function validateSchema(
                     }
                     break;
                 case 'address':
-                    Validator.validateAddress(value, field);
+                    Validator.validateAddress(value as string, field);
                     break;
                 case 'hex':
-                    Validator.validateHexString(value, field);
+                    Validator.validateHexString(value as string, field);
                     break;
                 case 'url':
-                    Validator.validateRpcUrl(value, field);
+                    Validator.validateRpcUrl(value as string, field);
                     break;
             }
 

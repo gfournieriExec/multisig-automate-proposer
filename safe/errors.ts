@@ -46,14 +46,14 @@ export class AppError extends Error {
     public readonly statusCode: number;
     public readonly isOperational: boolean;
     public readonly timestamp: Date;
-    public readonly context?: Record<string, any>;
+    public readonly context?: Record<string, unknown>;
 
     constructor(
         message: string,
         code: ErrorCode = ErrorCode.UNKNOWN_ERROR,
         statusCode: number = 500,
         isOperational: boolean = true,
-        context?: Record<string, any>,
+        context?: Record<string, unknown>,
     ) {
         super(message);
         this.name = this.constructor.name;
@@ -69,37 +69,37 @@ export class AppError extends Error {
 }
 
 export class ConfigurationError extends AppError {
-    constructor(message: string, context?: Record<string, any>) {
+    constructor(message: string, context?: Record<string, unknown>) {
         super(message, ErrorCode.INVALID_CONFIGURATION, 400, true, context);
     }
 }
 
 export class NetworkError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>) {
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>) {
         super(message, code, 503, true, context);
     }
 }
 
 export class SafeTransactionError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>) {
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>) {
         super(message, code, 422, true, context);
     }
 }
 
 export class FileSystemError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>) {
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>) {
         super(message, code, 404, true, context);
     }
 }
 
 export class ValidationError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>) {
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>) {
         super(message, code, 400, true, context);
     }
 }
 
 export class FoundryError extends AppError {
-    constructor(message: string, code: ErrorCode, context?: Record<string, any>) {
+    constructor(message: string, code: ErrorCode, context?: Record<string, unknown>) {
         super(message, code, 500, true, context);
     }
 }
@@ -111,8 +111,8 @@ export class ErrorHandler {
     /**
      * Format error for logging
      */
-    static formatError(error: Error): Record<string, any> {
-        const formatted: Record<string, any> = {
+    static formatError(error: Error): Record<string, unknown> {
+        const formatted: Record<string, unknown> = {
             message: error.message,
             stack: error.stack,
             timestamp: new Date().toISOString(),
