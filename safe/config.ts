@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import * as path from 'path';
 import { ConfigurationError } from './errors';
 import { logger } from './logger';
@@ -71,38 +72,39 @@ export function getSafeConfig(): SafeConfig {
 }
 
 export function getProposerConfig(): OwnerConfig {
-    const address = process.env[`PROPOSER_ADDRESS`];
     const privateKey = process.env[`PROPOSER_PRIVATE_KEY`];
 
-    if (!address || !privateKey) {
+    if (!privateKey) {
         logger.error('Missing required proposer configuration');
         throw new ConfigurationError(
-            `PROPOSER_ADDRESS and PROPOSER_PRIVATE_KEY are required in .env.safe`,
+            `PROPOSER_PRIVATE_KEY is required in .env.safe`,
             {
-                missingAddress: !address,
                 missingPrivateKey: !privateKey,
             },
         );
     }
 
-    // Validate proposer configuration
+    // Validate private key configuration
     try {
-        Validator.validateAddress(address, 'PROPOSER_ADDRESS');
         Validator.validatePrivateKey(privateKey, 'PROPOSER_PRIVATE_KEY');
+
+        // Derive address from private key using ethers
+        const wallet = new ethers.Wallet(privateKey);
+        const address = wallet.address;
 
         logger.info('Proposer configuration validated successfully', {
             address,
             privateKeyLength: privateKey.length,
         });
+
+        return {
+            address,
+            privateKey,
+        };
     } catch (error) {
         logger.error('Invalid proposer configuration', error as Error);
         throw error;
     }
-
-    return {
-        address,
-        privateKey,
-    };
 }
 
 export function validateEnvironment(): void {

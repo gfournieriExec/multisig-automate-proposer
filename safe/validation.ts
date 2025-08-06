@@ -273,7 +273,6 @@ export class Validator {
             'RPC_URL',
             'SAFE_ADDRESS',
             'SAFE_API_KEY',
-            'PROPOSER_ADDRESS',
             'PROPOSER_PRIVATE_KEY',
         ];
 
@@ -299,13 +298,6 @@ export class Validator {
             envVars,
             'SAFE_ADDRESS',
             (value) => this.validateAddress(value as string, 'SAFE_ADDRESS'),
-            errors,
-        );
-
-        this.validateEnvVarFormat(
-            envVars,
-            'PROPOSER_ADDRESS',
-            (value) => this.validateAddress(value as string, 'PROPOSER_ADDRESS'),
             errors,
         );
 

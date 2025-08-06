@@ -39,7 +39,6 @@ jobs:
           safe-address: ${{ vars.SAFE_ADDRESS }}
           safe-network: ${{ inputs.network }}
           rpc-url: ${{ secrets.RPC_URL }}
-          proposer-address: ${{ secrets.PROPOSER_ADDRESS }}
           proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
           safe-api-key: ${{ secrets.SAFE_API_KEY }}
           foundry-script-path: ${{ inputs.script_path }}

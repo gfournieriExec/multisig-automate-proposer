@@ -16,8 +16,7 @@ A reusable GitHub Action for proposing transactions through Safe multisig wallet
 ### Required Secrets
 Store these as repository secrets:
 
-- `PROPOSER_ADDRESS`: Address of a Safe owner account
-- `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account
+- `PROPOSER_PRIVATE_KEY`: Private key of a Safe owner account (address is automatically derived)
 - `RPC_URL`: RPC endpoint for blockchain interaction
 
 ### Optional Secrets
@@ -51,7 +50,6 @@ jobs:
           safe-address: ${{ vars.SAFE_ADDRESS }}
           safe-network: 'mainnet'
           rpc-url: ${{ secrets.RPC_URL }}
-          proposer-address: ${{ secrets.PROPOSER_ADDRESS }}
           proposer-private-key: ${{ secrets.PROPOSER_PRIVATE_KEY }}
           safe-api-key: ${{ secrets.SAFE_API_KEY }}  # Optional: for enhanced rate limits
           foundry-script-path: 'script/Deploy.s.sol'
