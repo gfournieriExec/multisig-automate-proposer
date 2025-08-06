@@ -5,8 +5,8 @@
 ### Pre-deployment Validation
 
 ```bash
-# Run full production validation
-npm run validate:production
+# Run full validation pipeline
+npm run validate
 
 # Build for production
 npm run build
@@ -31,7 +31,7 @@ npm audit --audit-level moderate
 
 3. **Validate configuration**:
     ```bash
-    npm run config:validate
+    npm run validate
     ```
 
 ### Docker Deployment
@@ -95,7 +95,7 @@ jobs:
               with:
                   node-version: '18'
             - run: npm ci
-            - run: npm run validate:production
+            - run: npm run validate
             - run: npm run build
             - name: Deploy to production
               run: |
@@ -107,14 +107,14 @@ jobs:
 #### Application Health
 
 ```bash
-# Check if services are running
-curl http://localhost:3000/health
+# Check if Safe API is accessible
+npm run list-pending
 
 # Check logs for errors
 tail -f logs/app.log | grep ERROR
 
-# Validate Safe connection
-npm run safe:status
+# Validate Safe connection status
+npm run list-pending
 ```
 
 #### Performance Monitoring

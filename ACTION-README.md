@@ -313,8 +313,8 @@ contract UpgradeScript is Script {
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Make your changes and add tests
-4. Run the test suite: `npm test`
+3. Make your changes and add validation
+4. Run the validation suite: `npm run validate`
 5. Submit a pull request
 
 ## 📄 License
