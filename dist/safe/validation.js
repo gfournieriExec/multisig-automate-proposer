@@ -178,12 +178,7 @@ class Validator {
      * Validate required environment variables
      */
     static validateRequiredEnvVars(envVars, errors) {
-        const required = [
-            'RPC_URL',
-            'SAFE_ADDRESS',
-            'SAFE_API_KEY',
-            'PROPOSER_PRIVATE_KEY',
-        ];
+        const required = ['RPC_URL', 'SAFE_ADDRESS', 'SAFE_API_KEY', 'PROPOSER_PRIVATE_KEY'];
         for (const envVar of required) {
             if (!envVars[envVar]) {
                 errors.push(`Missing required environment variable: ${envVar}`);
