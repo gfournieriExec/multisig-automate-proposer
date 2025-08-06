@@ -17,7 +17,6 @@ interface ActionInputs {
     foundryScriptPath: string;
     foundryScriptArgs: string;
     actionMode: 'propose' | 'list-pending';
-    gasLimit?: string;
     dryRun: boolean;
 }
 
@@ -37,7 +36,6 @@ class GitHubActionRunner {
             foundryScriptPath: core.getInput('foundry-script-path', { required: true }),
             foundryScriptArgs: core.getInput('foundry-script-args') || '',
             actionMode: (core.getInput('action-mode') as 'propose' | 'list-pending') || 'propose',
-            gasLimit: core.getInput('gas-limit') || undefined,
             dryRun: core.getBooleanInput('dry-run'),
         };
     }
@@ -49,7 +47,6 @@ SAFE_ADDRESS=${this.inputs.safeAddress}
 RPC_URL=${this.inputs.rpcUrl}
 PROPOSER_PRIVATE_KEY=${this.inputs.proposerPrivateKey}
 SAFE_API_KEY=${this.inputs.safeApiKey}
-${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
         `.trim();
 
         // Write environment configuration to a temporary file
@@ -60,9 +57,6 @@ ${this.inputs.gasLimit ? `GAS_LIMIT=${this.inputs.gasLimit}` : ''}
         process.env.RPC_URL = this.inputs.rpcUrl;
         process.env.PROPOSER_PRIVATE_KEY = this.inputs.proposerPrivateKey;
         process.env.SAFE_API_KEY = this.inputs.safeApiKey;
-        if (this.inputs.gasLimit) {
-            process.env.GAS_LIMIT = this.inputs.gasLimit;
-        }
 
         logger.info('Environment configured for GitHub Action', {
             safeAddress: this.inputs.safeAddress,
